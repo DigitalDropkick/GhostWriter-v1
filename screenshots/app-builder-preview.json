@@ -1,0 +1,35 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Ghostwriter",
+      "hasCanvas": false,
+      "bodyTextLen": 448,
+      "bodyTextHash": "7c725064cefbf3ded3753b48f04904680d4e9a17429d04acd08db16cdfc1e102",
+      "bodyTextPrefix": "GHOSTWRITER Speak your story. We'll set it on the page in your v",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Ghostwriter",
+      "hasCanvas": false,
+      "bodyTextLen": 448,
+      "bodyTextHash": "7c725064cefbf3ded3753b48f04904680d4e9a17429d04acd08db16cdfc1e102",
+      "bodyTextPrefix": "GHOSTWRITER Speak your story. We'll set it on the page in your v",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}

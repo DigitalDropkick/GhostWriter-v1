@@ -1,0 +1,156 @@
+@import url("https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&display=swap");
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme {
+  --font-sans: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --font-serif: "Source Serif 4", "Iowan Old Style", "Palatino Linotype", Palatino, serif;
+
+  --color-paper: #f3ede3;
+  --color-paper-deep: #e7ddce;
+  --color-paper-dark: #d9ccb6;
+  --color-ink: #2a241c;
+  --color-ink-soft: #5e564c;
+  --color-ink-faint: #8a8176;
+  --color-rule: #cdbc9e;
+  --color-moss: #3f5c4a;
+  --color-moss-dark: #2f4638;
+  --color-moss-fg: #f3ede3;
+  --color-listen: #3d4a5c;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 22px;
+  --radius-xl: 32px;
+}
+
+@layer base {
+  html {
+    font-size: 18px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html,
+  body,
+  #app {
+    min-height: 100%;
+    background: var(--color-paper);
+    color: var(--color-ink);
+  }
+
+  body {
+    font-family: var(--font-sans);
+    line-height: 1.5;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+
+  textarea,
+  input {
+    font: inherit;
+    color: inherit;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-moss) 28%, var(--color-paper));
+  }
+}
+
+.size-comfortable {
+  --page-size: 1.2rem;
+}
+.size-large {
+  --page-size: 1.4rem;
+}
+.size-xlarge {
+  --page-size: 1.7rem;
+}
+
+.paper-grain {
+  background-color: var(--color-paper);
+  background-image:
+    radial-gradient(ellipse at top left, rgb(255 255 255 / 0.35), transparent 42%),
+    radial-gradient(ellipse at bottom right, rgb(42 36 28 / 0.05), transparent 50%);
+}
+
+.manuscript-sheet {
+  background: #faf6ee;
+  box-shadow:
+    0 1px 0 rgb(42 36 28 / 0.06),
+    0 24px 48px -24px rgb(42 36 28 / 0.28);
+}
+
+.pulse-ring {
+  animation: pulse-ring 1.8s ease-out infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse-ring {
+    animation: none;
+  }
+}
+
+@media print {
+  html {
+    font-size: 12pt;
+    background: white;
+  }
+
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .manuscript-sheet {
+    box-shadow: none !important;
+    background: white !important;
+    padding: 0 !important;
+    max-width: none !important;
+  }
+
+  a {
+    text-decoration: none;
+    color: inherit;
+  }
+
+  @page {
+    margin: 1in;
+  }
+}
+
+.print-only {
+  display: none;
+}
