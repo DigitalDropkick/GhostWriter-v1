@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ghostwriter — Getting started</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      @page {
+        size: letter;
+        margin: 0.38in;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #fff;
+        color: #2a241c;
+        font-family: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .sheet {
+        width: 7.7in;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.18in;
+      }
+      .kicker {
+        margin: 0;
+        font-size: 9pt;
+        font-weight: 700;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: #3f5c4a;
+      }
+      h1 {
+        margin: 0.06in 0 0;
+        font-family: "Source Serif 4", "Palatino Linotype", Palatino, serif;
+        font-size: 20pt;
+        font-weight: 600;
+        line-height: 1.12;
+      }
+      .lead {
+        margin: 0.1in 0 0;
+        font-size: 11pt;
+        line-height: 1.35;
+        color: #5e564c;
+        max-width: 6.8in;
+      }
+      .address {
+        padding: 0.14in 0.16in;
+        background: #f3ede3;
+        border: 1px solid #cdbc9e;
+      }
+      .label {
+        margin: 0;
+        font-size: 8.5pt;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #8a8176;
+      }
+      .blank {
+        margin: 0.08in 0 0;
+        border-bottom: 1.5px solid #2a241c;
+        min-height: 0.32in;
+        font-family: "Source Serif 4", Palatino, serif;
+        font-size: 13pt;
+        font-style: italic;
+        color: #8a8176;
+      }
+      .hint {
+        margin: 0.1in 0 0;
+        font-size: 10.5pt;
+        line-height: 1.35;
+        color: #5e564c;
+      }
+      .split {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.22in 0.28in;
+      }
+      h2 {
+        margin: 0;
+        font-family: "Source Serif 4", Palatino, serif;
+        font-size: 13pt;
+        font-weight: 600;
+      }
+      .split p {
+        margin: 0.08in 0 0;
+        font-size: 10.5pt;
+        line-height: 1.38;
+        color: #5e564c;
+      }
+      .steps {
+        padding-top: 0.16in;
+        border-top: 1px solid #cdbc9e;
+      }
+      ol {
+        margin: 0.12in 0 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.12in 0.24in;
+      }
+      li.step {
+        display: grid;
+        grid-template-columns: 0.28in 1fr;
+        gap: 0.1in;
+        font-size: 10.5pt;
+        line-height: 1.38;
+        color: #5e564c;
+      }
+      .num {
+        display: grid;
+        place-items: center;
+        width: 0.26in;
+        height: 0.26in;
+        margin-top: 0.02in;
+        border-radius: 999px;
+        background: #3f5c4a;
+        color: #f3ede3;
+        font-size: 8.5pt;
+        font-weight: 700;
+      }
+      .foot {
+        padding-top: 0.12in;
+        border-top: 1px solid #cdbc9e;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.2in;
+        align-items: end;
+      }
+      .foot ul {
+        margin: 0.08in 0 0;
+        padding-left: 0.2in;
+        font-size: 10.5pt;
+        line-height: 1.38;
+        color: #5e564c;
+      }
+      .call {
+        margin: 0;
+        font-family: "Source Serif 4", Palatino, serif;
+        font-size: 12pt;
+        line-height: 1.3;
+        max-width: 2.3in;
+      }
+      strong {
+        color: #2a241c;
+        font-weight: 700;
+      }
+      @media print {
+        html,
+        body {
+          background: #fff;
+          padding: 0;
+          margin: 0;
+        }
+        .sheet {
+          width: auto;
+          height: auto;
+          max-height: none;
+          padding: 0;
+          box-shadow: none;
+        }
+      }
+      @media screen {
+        body {
+          background: #e7ddce;
+          padding: 24px;
+        }
+        .sheet {
+          margin: 0 auto;
+          padding: 0.42in;
+          background: #fff;
+          box-shadow: 0 24px 48px -24px rgb(42 36 28 / 0.35);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <article class="sheet">
+      <header>
+        <p class="kicker">Ghostwriter · keep this sheet by the computer</p>
+        <h1>You talk. It writes. You read, hear, or print.</h1>
+        <p class="lead">
+          That is the whole program. Your story stays in your voice — your words,
+          your humor, the way you tell a thing. Nothing is kept to train anyone
+          else’s system.
+        </p>
+      </header>
+
+      <section class="address">
+        <p class="label">The address of your book</p>
+        <p class="blank" id="address-line">Adam will write this here, or you copy it from his message.</p>
+        <p class="hint">
+          Open it in <strong>Microsoft Edge</strong> (the blue e) or
+          <strong>Google Chrome</strong>. Pick one. Always use that same program
+          — if you switch, it can look like an empty book even though yours is
+          still there. Click the star at the top so you never type this again.
+        </p>
+      </section>
+
+      <div class="split">
+        <section>
+          <h2>The laptop is home</h2>
+          <p>
+            Sit at the Windows computer. That is where the book lives, where you
+            write, and where you print. When Windows asks “Use your microphone?”,
+            click <strong>Allow</strong>. You only have to do that once.
+          </p>
+        </section>
+        <section>
+          <h2>The iPhone is a pocket notebook</h2>
+          <p>
+            Do not write the book on the phone. If a story arrives away from the
+            desk, open <strong>Voice Memos</strong> (the red waveform). Press the
+            red circle, talk, press it again. Later, at the laptop: Talk →
+            <strong>I have a recording</strong>.
+          </p>
+        </section>
+      </div>
+
+      <section class="steps">
+        <h2>How to write</h2>
+        <ol>
+          <li class="step"><span class="num">1</span>Open your bookmark.</li>
+          <li class="step">
+            <span class="num">2</span>The first time, press <strong>Start my book</strong>.
+            Put your name on the title page.
+          </li>
+          <li class="step">
+            <span class="num">3</span>Press the big green <strong>Talk</strong> button.
+            Tell the memory the way you would tell family.
+          </li>
+          <li class="step">
+            <span class="num">4</span>Press <strong>I’m finished</strong>. Read what it
+            heard. Fix any word that looks wrong — that is normal.
+          </li>
+          <li class="step">
+            <span class="num">5</span>Press <strong>Write this into the book</strong>.
+            It will set the page in your voice.
+          </li>
+          <li class="step">
+            <span class="num">6</span>Whenever you like: <strong>Read</strong> (quiet
+            page), <strong>Listen to the page</strong>, or <strong>Print</strong>.
+          </li>
+        </ol>
+      </section>
+
+      <footer class="foot">
+        <div>
+          <h2>If something looks wrong</h2>
+          <ul>
+            <li>
+              <strong>Wrong words</strong> — fix them before you press Write this
+              into the book.
+            </li>
+            <li>
+              <strong>No microphone</strong> — press Type instead, or use a Voice
+              Memo from the phone.
+            </li>
+            <li>
+              <strong>Can’t find the book</strong> — same bookmark, same program
+              (Edge or Chrome). Don’t use a private or “InPrivate” window.
+            </li>
+          </ul>
+        </div>
+        <p class="call">
+          Anything else — call Adam at <strong>(502) 427-9894</strong>.
+        </p>
+      </footer>
+    </article>
+    <script>
+      const params = new URLSearchParams(location.search);
+      const url = params.get("url");
+      if (url) {
+        const line = document.getElementById("address-line");
+        line.textContent = url;
+        line.style.fontStyle = "normal";
+        line.style.color = "#2a241c";
+      }
+    </script>
+  </body>
+</html>

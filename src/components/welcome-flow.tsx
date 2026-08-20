@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { useBook } from "@/lib/book-store";
 import {
@@ -94,7 +95,14 @@ export function WelcomeFlow({ onEnterDesk }: { onEnterDesk: () => void }) {
           </div>
           <p className="text-base text-ink-faint">
             Your words stay on this computer. Nothing is kept to train anyone
-            else's system.
+            else's system.{" "}
+            <Link
+              to="/start"
+              className="text-moss underline-offset-4 hover:underline"
+            >
+              Print a one-page getting-started sheet
+            </Link>
+            .
           </p>
         </div>
       ) : null}

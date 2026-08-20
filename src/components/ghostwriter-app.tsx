@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { BookOpen, Feather, Mic, Printer, Settings, Type } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { WelcomeFlow } from "@/components/welcome-flow";
 import { TalkFlow } from "@/components/talk-flow";
@@ -90,6 +91,11 @@ export function GhostwriterApp() {
                 <Printer className="size-4" />
                 Print
               </Button>
+              <Link to="/start">
+                <Button size="md" variant="quiet">
+                  Guide
+                </Button>
+              </Link>
               <Button
                 size="md"
                 variant="quiet"
@@ -434,6 +440,13 @@ export function GhostwriterApp() {
             <li>
               <strong className="text-ink">Listen or print.</strong> Listen reads
               the page aloud. Print uses the printer already on this computer.
+            </li>
+            <li>
+              <strong className="text-ink">Keep a paper guide.</strong>{" "}
+              <Link to="/start" className="text-moss underline-offset-4 hover:underline">
+                Print the one-page getting-started sheet
+              </Link>{" "}
+              and leave it beside the laptop.
             </li>
           </ol>
         </Modal>
