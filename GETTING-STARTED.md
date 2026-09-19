@@ -2,13 +2,13 @@
 
 **Keep this sheet by the computer.**
 
-You talk. It writes the story in your voice. You can read it, hear it, or print it. That is the whole program. Your words stay on this computer. Nothing is kept to train anyone else’s system.
+You talk. It writes the story in your voice. You can read it, hear it, or print it. That is the whole program. Private dictation processes your voice on this computer. The first use downloads speech files; your recording is not uploaded. Download a backup after each writing session.
 
 ---
 
 ## The address of your book
 
-Write it here (Adam will send this):
+Write it here (Addam will send this):
 
 ________________________________________________
 
@@ -42,10 +42,10 @@ Or just sit down at the laptop and tell it again. Stories keep.
 
 1. Open your bookmark.
 2. The first time, press **Start my book**. Put your name on the title page.
-3. Press the big green **Talk** button. Tell the memory the way you would tell family.
+3. Press **Talk → Start private dictation**. Let the speech files download the first time. Tell the story the way you would tell family.
 4. Press **I’m finished**. Read what it heard. Fix any word that looks wrong — that is normal.
-5. Press **Write this into the book**. It will set the page in your voice.
-6. Whenever you like: **Read** (quiet page), **Listen to the page**, or **Print**.
+5. Press **Write this into the book**. It adds the passage without changing earlier pages.
+6. Use **Read**, **Listen to the page**, or **Print**. Then choose **Backups → Download backup** and keep the file on a USB drive.
 
 ---
 
@@ -55,7 +55,7 @@ Or just sit down at the laptop and tell it again. Stories keep.
 - **No microphone** — press Type instead, or use a Voice Memo from the phone.
 - **Can’t find the book** — same bookmark, same program (Edge or Chrome). Don’t use a private or “InPrivate” window.
 
-Anything else — call Adam at **(502) 427-9894**.
+Anything else — call Addam at **(502) 427-9894**.
 
 ---
 

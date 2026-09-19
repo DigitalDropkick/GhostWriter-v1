@@ -9,6 +9,8 @@ import {
   type BookKind,
   type PolishLevel,
 } from "@/lib/types";
+import { Modal } from "./ui/modal";
+import { LibraryTools } from "./library-tools";
 import { Feather, Mic } from "lucide-react";
 
 const KINDS: BookKind[] = ["memoir", "family", "novel", "other"];
@@ -17,6 +19,7 @@ const POLISH: PolishLevel[] = ["faithful", "light", "literary"];
 export function WelcomeFlow({ onEnterDesk }: { onEnterDesk: () => void }) {
   const { createBook, setCurrent, state } = useBook();
   const [step, setStep] = useState(0);
+  const [backupsOpen, setBackupsOpen] = useState(false);
   const [author, setAuthor] = useState("");
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<BookKind>("memoir");
@@ -37,6 +40,7 @@ export function WelcomeFlow({ onEnterDesk }: { onEnterDesk: () => void }) {
 
   return (
     <div className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col justify-start px-5 py-10 sm:px-8 sm:py-14">
+      {backupsOpen && <Modal title="Restore your books" onClose={() => setBackupsOpen(false)}><LibraryTools /></Modal>}
       {step === 0 ? (
         <div className="space-y-10">
           <div className="space-y-4">
@@ -93,9 +97,9 @@ export function WelcomeFlow({ onEnterDesk }: { onEnterDesk: () => void }) {
               </Button>
             ) : null}
           </div>
-          <p className="text-base text-ink-faint">
-            Your words stay on this computer. Nothing is kept to train anyone
-            else's system.{" "}
+          <Button variant="quiet" size="md" onClick={() => setBackupsOpen(true)}>Restore a backup</Button>
+          <p className="text-base text-ink-soft">
+            Private dictation processes your voice on this computer. Speech files download on first use; your recordings are not uploaded. Back up your books regularly.{" "}
             <Link
               to="/start"
               className="text-moss underline-offset-4 hover:underline"
@@ -115,6 +119,7 @@ export function WelcomeFlow({ onEnterDesk }: { onEnterDesk: () => void }) {
         >
           <input
             autoFocus
+            aria-label="Author name"
             value={author}
             onChange={(e) => setAuthor(e.target.value)}
             placeholder="For example: James Whitaker"
@@ -132,6 +137,7 @@ export function WelcomeFlow({ onEnterDesk }: { onEnterDesk: () => void }) {
         >
           <input
             autoFocus
+            aria-label="Book title"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="My Story"
@@ -228,6 +234,7 @@ function Choice({
     <button
       type="button"
       onClick={onClick}
+      aria-pressed={selected}
       className={`rounded-[20px] border px-5 py-4 text-left transition-colors ${
         selected
           ? "border-moss bg-paper-deep"

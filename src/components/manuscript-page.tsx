@@ -43,6 +43,7 @@ export function ManuscriptPage({
 
       {editable ? (
         <textarea
+          aria-label="Chapter text"
           value={chapter.body}
           onChange={(e) => updateChapter(chapter.id, { body: e.target.value, title: chapter.title })}
           placeholder="The page is empty. Press Talk, and we will write what you say here."

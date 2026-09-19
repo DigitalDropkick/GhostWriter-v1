@@ -38,7 +38,9 @@ export const Route = createRootRoute({
           <BookProvider>
             <Outlet />
             <Toaster
-              position="top-center"
+              position="bottom-center"
+              visibleToasts={1}
+              closeButton
               toastOptions={{
                 className:
                   "font-sans text-lg bg-paper text-ink border border-rule shadow-lg",

@@ -1,15 +1,17 @@
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 
 const url = process.argv[2] || "http://127.0.0.1:8080/getting-started.html";
-const pdfPath = process.argv[3] || "/workspace/public/getting-started.pdf";
-const pngPath = process.argv[4] || "/workspace/screenshots/getting-started.png";
+const pdfPath = process.argv[3] || fileURLToPath(new URL("../public/getting-started.pdf", import.meta.url));
+const pngPath = process.argv[4] || fileURLToPath(new URL("../screenshots/qa-review/getting-started.png", import.meta.url));
 
 await mkdir(dirname(pdfPath), { recursive: true });
 await mkdir(dirname(pngPath), { recursive: true });
 
-const browser = await chromium.launch({ args: ["--no-sandbox"] });
+const browser = await chromium.launch({ executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || (existsSync(chromium.executablePath()) ? undefined : "/usr/bin/google-chrome"), args: ["--no-sandbox"] });
 const page = await browser.newPage({ viewport: { width: 900, height: 1200 } });
 await page.goto(url, { waitUntil: "networkidle" });
 await page.waitForTimeout(600);

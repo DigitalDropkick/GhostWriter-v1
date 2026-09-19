@@ -46,6 +46,8 @@ export interface PersistedState {
   currentBookId: string | null;
   currentChapterId: string | null;
   settings: Settings;
+  draft?: DictationDraft | null;
+  revisions?: ChapterRevision[];
 }
 
 export const KIND_LABEL: Record<BookKind, string> = {
@@ -69,3 +71,19 @@ export const POLISH_HELP: Record<PolishLevel, string> = {
   literary:
     "We turn rambling talk into a clear chapter, keeping your voice, humor, and the way you tell a story. We do not invent facts.",
 };
+
+export interface DictationDraft {
+  originalTranscript?: string;
+  bookId: string;
+  chapterId: string;
+  transcript: string;
+  audioId: string | null;
+  durationMs: number;
+}
+export interface ChapterRevision {
+  id: string;
+  chapterId: string;
+  title: string;
+  body: string;
+  createdAt: number;
+}

@@ -6,9 +6,9 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import {
   appNameFromHost,
-  createHeadInjector,
+  createHeadInjector as createWorkspaceHeadInjector,
   grokXCreatorHeadTags,
-  injectGrokPwaHead,
+  injectGrokPwaHead as injectWorkspaceGrokPwaHead,
   isDocumentPath,
   isInstallQuery,
   renderWebManifest,
@@ -16,6 +16,10 @@ import {
   stripInstallParams,
 } from "./grok-pwa-shared.mjs";
 import { renderInstallPage } from "./grok-pwa-plugin.mjs";
+
+// Generic template fixtures must not inherit this app's custom title/card.
+const injectGrokPwaHead = (html, ctx = {}) => injectWorkspaceGrokPwaHead(html, { site: {}, ...ctx });
+const createHeadInjector = (ctx = {}) => createWorkspaceHeadInjector({ site: {}, ...ctx });
 
 const TEMPLATE_ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 

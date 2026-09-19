@@ -11,7 +11,7 @@
   --color-paper-dark: #d9ccb6;
   --color-ink: #2a241c;
   --color-ink-soft: #5e564c;
-  --color-ink-faint: #8a8176;
+  --color-ink-faint: #6b6257;
   --color-rule: #cdbc9e;
   --color-moss: #3f5c4a;
   --color-moss-dark: #2f4638;
@@ -348,4 +348,22 @@
 
 .print-only {
   display: none;
+}
+
+/* Accessible controls, long book titles, and a writing-first phone layout. */
+:focus-visible { outline: 3px solid var(--color-moss); outline-offset: 3px; }
+button, a, summary { touch-action: manipulation; }
+button { white-space: normal; }
+article, main, aside { overflow-wrap: anywhere; }
+select { text-overflow: ellipsis; }
+@media (max-width: 1023px) {
+  aside { order: 2; }
+  main { order: 1; }
+}
+@media (max-width: 639px) {
+  header > div > div { flex-wrap: wrap; }
+  button { max-width: 100%; }
+}
+@media print {
+  .print-prose { font-size: var(--page-size, 1.4rem); }
 }

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { BookOpen, Feather, Mic, Printer, Settings, Type } from "lucide-react";
+import { BookOpen, Download, Feather, History, Mic, Printer, Settings, ShieldCheck, Type } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { WelcomeFlow } from "@/components/welcome-flow";
@@ -9,11 +9,14 @@ import { ListenBar } from "@/components/listen-bar";
 import { useBook } from "@/lib/book-store";
 import { downloadText, wordCount } from "@/lib/utils";
 import { KIND_LABEL, POLISH_LABEL, type AppMode, type TypeSize } from "@/lib/types";
-import { SignedIn, SignedOut, UserButton } from "@/lib/auth/gates";
+import { SignedIn, UserButton } from "@/lib/auth/gates";
 import { toast } from "sonner";
+import { Modal } from "./ui/modal";
+import { LibraryTools } from "./library-tools";
 
 export function GhostwriterApp() {
   const {
+    ready, loadError, saveError, saveStatus, flushSave, checkpointChapter, restoreRevision,
     book,
     chapter,
     chapters,
@@ -31,6 +34,9 @@ export function GhostwriterApp() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [editingPage, setEditingPage] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [backupsOpen, setBackupsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const sessionOpen = talkOpen || typeOpen;
 
   const sizeClass =
     state.settings.typeSize === "xlarge"
@@ -43,6 +49,12 @@ export function GhostwriterApp() {
     () => chapters.reduce((n, c) => n + wordCount(c.body), 0),
     [chapters],
   );
+
+  if (!ready) return <main className="mx-auto max-w-xl space-y-5 px-5 py-16">
+    <h1 className="font-serif text-3xl">{loadError ? "Your books need attention" : "Opening your books…"}</h1>
+    <p role={loadError ? "alert" : "status"} className="text-lg text-ink-soft">{loadError ?? "Waiting for this browser’s saved library."}</p>
+    {loadError && <Button onClick={() => window.location.reload()}>Try opening again</Button>}
+  </main>;
 
   if (mode === "welcome" && !state.books.some((b) => !b.isSample)) {
     return <WelcomeFlow onEnterDesk={() => setMode("desk")} />;
@@ -72,6 +84,7 @@ export function GhostwriterApp() {
           <div className="flex items-center justify-between gap-3">
             <button
               type="button"
+              disabled={sessionOpen}
               onClick={() => setMode("desk")}
               className="flex items-center gap-2"
             >
@@ -82,6 +95,7 @@ export function GhostwriterApp() {
               <Button
                 size="md"
                 variant={mode === "read" ? "primary" : "secondary"}
+                disabled={sessionOpen}
                 onClick={() => setMode(mode === "read" ? "desk" : "read")}
               >
                 <BookOpen className="size-4" />
@@ -91,14 +105,16 @@ export function GhostwriterApp() {
                 <Printer className="size-4" />
                 Print
               </Button>
-              <Link to="/start">
+              <Link to="/start" onClick={e => { if (sessionOpen) { e.preventDefault(); toast("Keep this draft for later before opening the guide."); } }}>
                 <Button size="md" variant="quiet">
                   Guide
                 </Button>
               </Link>
+              <Button size="md" variant="secondary" disabled={sessionOpen} onClick={() => setBackupsOpen(true)}><Download className="size-4" />Backups</Button>
               <Button
                 size="md"
                 variant="quiet"
+                disabled={sessionOpen}
                 onClick={() => setSettingsOpen(true)}
                 aria-label="Settings"
               >
@@ -120,6 +136,13 @@ export function GhostwriterApp() {
           ) : null}
         </div>
       </header>
+
+      <div className="no-print mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 pt-4 text-base sm:px-6">
+        <p className="flex items-center gap-2 font-bold text-moss"><ShieldCheck className="size-5" />Private dictation</p>
+        <p role="status" aria-live="polite" className="text-ink-soft">{saveStatus === "saved" ? "Saved on this computer" : saveStatus === "saving" ? "Saving your words…" : "Changes need saving"}</p>
+      </div>
+      {saveError && <div role="alert" className="no-print mx-auto mt-4 max-w-4xl space-y-3 rounded-lg border border-rule bg-paper-deep p-5"><p>{saveError}</p><div className="flex flex-wrap gap-3"><Button size="md" onClick={() => setBackupsOpen(true)}>Download a backup now</Button><Button size="md" variant="secondary" onClick={() => void flushSave().catch(() => {})}>Retry saving</Button></div></div>}
+      {state.draft && !sessionOpen && <div className="no-print mx-auto mt-4 flex max-w-4xl flex-wrap items-center justify-between gap-3 rounded-lg border border-rule bg-paper-deep/50 p-5"><p>You have an unfinished passage. Your words are waiting.</p><Button size="md" onClick={() => { if (state.draft) setCurrent(state.draft.bookId, state.draft.chapterId); setMode("desk"); setTypeOpen(true); }}>Continue my draft</Button></div>}
 
       {mode === "read" ? (
         <div className="no-print mx-auto max-w-4xl px-4 py-10 sm:px-6">
@@ -160,7 +183,8 @@ export function GhostwriterApp() {
         </div>
       ) : (
         <div className="no-print mx-auto grid max-w-7xl gap-6 px-4 py-6 lg:grid-cols-[18rem_minmax(0,1fr)] sm:px-6">
-          <aside className="no-print space-y-4">
+          <aside className="no-print min-w-0 space-y-4" inert={sessionOpen}>
+            <label className="block space-y-2"><span className="text-base font-bold text-ink-soft">Your books</span><select aria-label="Your books" value={book?.id ?? ""} onChange={e => { setCurrent(e.target.value); setEditingPage(false); }} className="h-14 w-full min-w-0 rounded-md border border-rule bg-paper px-3 text-lg">{state.books.map(b => <option key={b.id} value={b.id}>{b.title}{b.isSample ? " (sample)" : ""}</option>)}</select></label>
             <div className="rounded-[24px] border border-rule bg-paper-deep/40 p-4">
               <p className="text-sm font-bold tracking-[0.16em] text-ink-faint uppercase">
                 Chapters
@@ -172,7 +196,8 @@ export function GhostwriterApp() {
                     <li key={c.id}>
                       <button
                         type="button"
-                        onClick={() => book && setCurrent(book.id, c.id)}
+                        aria-current={active ? "page" : undefined}
+                        onClick={() => { if (book) setCurrent(book.id, c.id); setEditingPage(false); }}
                         className={`w-full rounded-[14px] px-3 py-3 text-left text-lg ${
                           active ? "bg-paper text-ink" : "text-ink-soft hover:bg-paper/70"
                         }`}
@@ -221,7 +246,7 @@ export function GhostwriterApp() {
             )}
           </aside>
 
-          <main className="space-y-5">
+          <main className="min-w-0 space-y-5">
             {book?.isSample ? (
               <div className="no-print flex flex-col gap-3 rounded-[24px] border border-rule bg-paper-deep/50 px-5 py-4 text-lg text-ink sm:flex-row sm:items-center sm:justify-between">
                 <p>
@@ -265,18 +290,19 @@ export function GhostwriterApp() {
                       {chapter ? chapter.title : "Your book"}
                     </p>
                     <p className="text-base text-ink-soft">
-                      Press Talk and tell the next memory. Or type, if you'd rather.
+                      Press Talk and speak the next part. Or type, if you'd rather.
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-3">
-                    <Button size="xl" onClick={() => setTalkOpen(true)}>
+                    <Button size="xl" disabled={!chapter} onClick={() => { if (state.draft) setCurrent(state.draft.bookId, state.draft.chapterId); setEditingPage(false); setTalkOpen(true); }}>
                       <Mic className="size-6" />
                       Talk
                     </Button>
                     <Button
                       size="lg"
                       variant="secondary"
-                      onClick={() => setTypeOpen(true)}
+                      disabled={!chapter}
+                      onClick={() => { if (state.draft) setCurrent(state.draft.bookId, state.draft.chapterId); setEditingPage(false); setTypeOpen(true); }}
                     >
                       Type instead
                     </Button>
@@ -292,13 +318,15 @@ export function GhostwriterApp() {
               <button
                 type="button"
                 className="text-base text-moss underline-offset-4 hover:underline"
-                onClick={() => setEditingPage((v) => !v)}
+                disabled={sessionOpen}
+                onClick={() => { if (!editingPage && chapter) checkpointChapter(chapter.id); setEditingPage(v => !v); }}
               >
                 {editingPage ? "Done editing the page" : "Edit the page myself"}
               </button>
+              <Button size="md" variant="quiet" disabled={sessionOpen} onClick={() => setHistoryOpen(true)}><History className="size-4" />Page history</Button>
               <button
                 type="button"
-                className="text-base text-ink-faint underline-offset-4 hover:underline"
+                className="text-base text-ink-soft underline-offset-4 hover:underline"
                 onClick={saveCopy}
               >
                 Save a text copy
@@ -339,13 +367,14 @@ export function GhostwriterApp() {
                   />
                 </Field>
               ) : null}
-              <Field label="How we treat your words">
+              <Field label="Optional online writing style">
                 <p className="mb-2 text-base text-ink-soft">{POLISH_LABEL[book.polish]}</p>
                 <div className="grid gap-2">
                   {(["faithful", "light", "literary"] as const).map((p) => (
                     <button
                       key={p}
                       type="button"
+                      aria-pressed={book.polish === p}
                       onClick={() => updateBook(book.id, { polish: p })}
                       className={`rounded-[14px] border px-4 py-3 text-left ${
                         book.polish === p ? "border-moss bg-paper-deep" : "border-rule"
@@ -378,6 +407,7 @@ export function GhostwriterApp() {
                       key={id}
                       size="md"
                       variant={state.settings.typeSize === id ? "primary" : "secondary"}
+                      aria-pressed={state.settings.typeSize === id}
                       onClick={() => updateSettings({ typeSize: id })}
                     >
                       <Type className="size-4" />
@@ -387,8 +417,8 @@ export function GhostwriterApp() {
                 </div>
               </Field>
               <p className="text-base text-ink-faint">
-                This is a {KIND_LABEL[book.kind].toLowerCase()}. Words stay on this
-                computer unless you print them or save a copy.
+                This is a {KIND_LABEL[book.kind].toLowerCase()}. Your library is saved in this
+                browser. Private dictation processes audio on your computer. Optional online writing help sends text only after you agree.
               </p>
               <div className="flex flex-col gap-3 sm:flex-row">
                 <Button
@@ -408,14 +438,7 @@ export function GhostwriterApp() {
                 >
                   Start another book
                 </Button>
-                <SignedOut>
-                  <a
-                    href="/login"
-                    className="inline-flex h-16 items-center justify-center rounded-[18px] px-7 text-lg text-ink-soft underline-offset-4 hover:underline"
-                  >
-                    Optional: sign in for a named backup
-                  </a>
-                </SignedOut>
+
               </div>
             </div>
           ) : null}
@@ -452,6 +475,15 @@ export function GhostwriterApp() {
         </Modal>
       ) : null}
 
+      {backupsOpen && <Modal title="Back up your books" onClose={() => setBackupsOpen(false)}><LibraryTools /></Modal>}
+      {historyOpen && <Modal title="Page history & original words" onClose={() => setHistoryOpen(false)}>
+        <div className="space-y-5"><p className="text-lg text-ink-soft">Previous pages are kept before dictation and editing. Restoring a page also keeps the current version here.</p>
+        {(state.revisions ?? []).filter(r => r.chapterId === chapter?.id && (r.body !== chapter.body || r.title !== chapter.title)).map(r => <details key={r.id} className="rounded-lg border border-rule p-4"><summary className="cursor-pointer">{new Date(r.createdAt).toLocaleString()} · {wordCount(r.body)} words</summary><p className="my-4 whitespace-pre-wrap">{r.body || "Empty page"}</p><Button size="md" onClick={() => { if (window.confirm("Restore this earlier page? The current page will also be kept in history.")) { restoreRevision(r.id); setHistoryOpen(false); } }}>Restore this page</Button></details>)}
+        {!(state.revisions ?? []).some(r => r.chapterId === chapter?.id && (r.body !== chapter.body || r.title !== chapter.title)) && <p>No earlier page versions yet.</p>}
+        <h3 className="font-serif text-2xl">Original passages</h3>
+        {state.sessions.filter(s => s.chapterId === chapter?.id).map(s => <details key={s.id} className="rounded-lg border border-rule p-4"><summary className="cursor-pointer">{new Date(s.createdAt).toLocaleString()} · {wordCount(s.transcript)} words</summary><p className="mt-4 whitespace-pre-wrap">{s.transcript}</p></details>)}
+        </div>
+      </Modal>}
       <PrintBook />
     </div>
   );
@@ -470,7 +502,7 @@ function PrintBook() {
       {chapters.map((c) => (
         <section key={c.id} className="break-before-page py-4">
           <h2 className="font-serif text-3xl">{c.title}</h2>
-          <div className="mt-8 space-y-5 font-serif text-[14pt] leading-[1.65]">
+          <div className="print-prose mt-8 space-y-5 font-serif leading-[1.65]">
             {(c.body.trim() || " ").split(/\n{2,}/).map((para, i) => (
               <p key={i} className="whitespace-pre-wrap">
                 {para.trim()}
@@ -498,7 +530,7 @@ function ChapterPicker({
       <select
         value={currentId}
         onChange={(e) => onPick(e.target.value)}
-        className="h-12 rounded-[14px] border border-rule bg-paper px-3 text-lg outline-none focus:border-moss"
+        className="min-w-0 max-w-full h-12 rounded-[14px] border border-rule bg-paper px-3 text-lg outline-none focus:border-moss"
       >
         {chapters.map((c) => (
           <option key={c.id} value={c.id}>
@@ -507,34 +539,6 @@ function ChapterPicker({
         ))}
       </select>
     </label>
-  );
-}
-
-function Modal({
-  title,
-  onClose,
-  children,
-}: {
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="no-print fixed inset-0 z-40 grid place-items-end bg-ink/40 p-3 sm:place-items-center">
-      <div
-        role="dialog"
-        aria-modal="true"
-        className="max-h-[90dvh] w-full max-w-xl overflow-auto rounded-[28px] bg-paper p-6 shadow-2xl sm:p-8"
-      >
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <h2 className="font-serif text-3xl text-ink">{title}</h2>
-          <Button size="md" variant="quiet" onClick={onClose}>
-            Close
-          </Button>
-        </div>
-        {children}
-      </div>
-    </div>
   );
 }
 

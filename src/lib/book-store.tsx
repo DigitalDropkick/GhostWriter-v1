@@ -12,113 +12,157 @@ import type {
   Book,
   BookKind,
   Chapter,
+  DictationDraft,
   PersistedState,
   PolishLevel,
-  Session,
   Settings,
 } from "./types";
-import { emptyState, loadState, saveAudio, saveState } from "./storage";
+import { emptyState, loadState, saveState } from "./storage";
 import { uid } from "./utils";
 
+type NewBook = {
+  title: string;
+  author: string;
+  kind: BookKind;
+  polish: PolishLevel;
+  voiceNotes: string;
+};
+type SaveStatus = "loading" | "saved" | "saving" | "error";
 type BookContextValue = {
   ready: boolean;
+  loadError: string | null;
+  saveError: string | null;
+  saveStatus: SaveStatus;
   state: PersistedState;
   book: Book | null;
   chapter: Chapter | null;
   chapters: Chapter[];
-  sessionsForChapter: Session[];
+  sessionsForChapter: PersistedState["sessions"];
   setCurrent: (bookId: string, chapterId?: string | null) => void;
-  createBook: (input: {
-    title: string;
-    author: string;
-    kind: BookKind;
-    polish: PolishLevel;
-    voiceNotes: string;
-  }) => { book: Book; chapter: Chapter };
+  createBook: (input: NewBook) => { book: Book; chapter: Chapter };
   updateBook: (id: string, patch: Partial<Book>) => void;
   addChapter: (bookId: string, title?: string) => Chapter;
   updateChapter: (id: string, patch: Partial<Chapter>) => void;
-  deleteChapter: (id: string) => void;
-  addSession: (session: Session, audio?: Blob | null) => Promise<void>;
   updateSettings: (patch: Partial<Settings>) => void;
+  updateDraft: (draft: DictationDraft | null) => void;
+  commitDraft: (destination: "append" | "new") => Promise<void>;
+  checkpointChapter: (id: string) => void;
+  restoreRevision: (id: string) => void;
+  importLibrary: (library: PersistedState) => Promise<void>;
+  flushSave: () => Promise<void>;
 };
-
 const BookContext = createContext<BookContextValue | null>(null);
 
-function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {
-  return new Promise((resolve) => {
-    const t = setTimeout(() => resolve(fallback), ms);
-    promise
-      .then((v) => {
-        clearTimeout(t);
-        resolve(v);
-      })
-      .catch(() => {
-        clearTimeout(t);
-        resolve(fallback);
-      });
-  });
-}
-
 export function BookProvider({ children }: { children: ReactNode }) {
-  const [ready, setReady] = useState(false);
   const [state, setState] = useState<PersistedState>(emptyState);
-  const skipSave = useRef(true);
+  const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("loading");
+  const current = useRef(state);
+  const persisted = useRef(state);
+  const revision = useRef(0);
+  const writable = useRef(false);
+  const pending = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    withTimeout(loadState(), 1200, emptyState()).then((loaded) => {
-      if (cancelled) return;
-      setState(loaded);
-      setReady(true);
-      skipSave.current = false;
-    });
+    loadState()
+      .then((loaded) => {
+        if (cancelled) return;
+        current.current = persisted.current = loaded.state;
+        revision.current = loaded.revision;
+        setState(loaded.state);
+        writable.current = true;
+        setReady(true);
+        setSaveStatus("saved");
+      })
+      .catch(() => {
+        if (!cancelled)
+          setLoadError(
+            "We could not open your saved books. Nothing has been replaced. Close other Ghostwriter tabs and try again. If this continues, contact Addam before clearing browser data.",
+          );
+      });
     return () => {
       cancelled = true;
+      writable.current = false;
     };
   }, []);
 
-  useEffect(() => {
-    if (!ready || skipSave.current) return;
-    const handle = window.setTimeout(() => {
-      void saveState(state);
-    }, 250);
-    return () => window.clearTimeout(handle);
-  }, [state, ready]);
-
-  const mutate = useCallback((fn: (prev: PersistedState) => PersistedState) => {
-    setState((prev) => fn(prev));
+  const flushSave = useCallback((): Promise<void> => {
+    if (pending.current) return pending.current;
+    if (!writable.current || current.current === persisted.current) return Promise.resolve();
+    setSaveStatus("saving");
+    setSaveError(null);
+    pending.current = (async () => {
+      while (current.current !== persisted.current) {
+        const snapshot = current.current;
+        revision.current = await saveState(snapshot, revision.current);
+        persisted.current = snapshot;
+      }
+      setSaveStatus("saved");
+    })()
+      .catch((error) => {
+        setSaveStatus("error");
+        setSaveError(
+          error instanceof Error && error.name !== "QuotaExceededError"
+            ? error.message
+            : "This browser could not save your latest changes. Download a backup now, then free some storage and retry.",
+        );
+        throw error;
+      })
+      .finally(() => {
+        pending.current = null;
+      });
+    return pending.current;
   }, []);
 
-  const setCurrent = useCallback((bookId: string, chapterId?: string | null) => {
-    mutate((prev) => {
-      const chapters = prev.chapters
-        .filter((c) => c.bookId === bookId)
-        .sort((a, b) => a.sort - b.sort);
-      const nextChapter =
-        chapterId === undefined
-          ? (chapters[0]?.id ?? null)
-          : chapterId;
-      return { ...prev, currentBookId: bookId, currentChapterId: nextChapter };
-    });
-  }, [mutate]);
+  const mutate = useCallback(
+    (fn: (prev: PersistedState) => PersistedState) => {
+      if (!writable.current) return;
+      current.current = fn(current.current);
+      setState(current.current);
+      // Start immediately. Serialize writes and include edits made while a write is in flight.
+      void flushSave().catch(() => {
+        /* The persistent save-error banner owns this. */
+      });
+    },
+    [flushSave],
+  );
+
+  useEffect(() => {
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (current.current !== persisted.current) {
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => window.removeEventListener("beforeunload", beforeUnload);
+  }, []);
+
+  const setCurrent = useCallback(
+    (bookId: string, chapterId?: string | null) => {
+      mutate((prev) => ({
+        ...prev,
+        currentBookId: bookId,
+        currentChapterId:
+          chapterId ??
+          prev.chapters.filter((c) => c.bookId === bookId).sort((a, b) => a.sort - b.sort)[0]?.id ??
+          null,
+      }));
+    },
+    [mutate],
+  );
 
   const createBook = useCallback(
-    (input: {
-      title: string;
-      author: string;
-      kind: BookKind;
-      polish: PolishLevel;
-      voiceNotes: string;
-    }) => {
+    (input: NewBook) => {
       const now = Date.now();
       const book: Book = {
+        ...input,
         id: uid("book"),
         title: input.title.trim() || "My Story",
         author: input.author.trim() || "Anonymous",
-        kind: input.kind,
-        polish: input.polish,
-        voiceNotes: input.voiceNotes.trim(),
         createdAt: now,
         updatedAt: now,
       };
@@ -132,7 +176,7 @@ export function BookProvider({ children }: { children: ReactNode }) {
       };
       mutate((prev) => ({
         ...prev,
-        books: [...prev.books.filter((b) => !b.isSample), book, ...prev.books.filter((b) => b.isSample)],
+        books: [book, ...prev.books],
         chapters: [...prev.chapters, chapter],
         currentBookId: book.id,
         currentChapterId: chapter.id,
@@ -147,7 +191,7 @@ export function BookProvider({ children }: { children: ReactNode }) {
       mutate((prev) => ({
         ...prev,
         books: prev.books.map((b) =>
-          b.id === id ? { ...b, ...patch, isSample: false, updatedAt: Date.now() } : b,
+          b.id === id ? { ...b, ...patch, id: b.id, isSample: false, updatedAt: Date.now() } : b,
         ),
       }));
     },
@@ -156,13 +200,13 @@ export function BookProvider({ children }: { children: ReactNode }) {
 
   const addChapter = useCallback(
     (bookId: string, title?: string) => {
-      const siblings = state.chapters.filter((c) => c.bookId === bookId);
+      const siblings = current.current.chapters.filter((c) => c.bookId === bookId);
       const chapter: Chapter = {
         id: uid("ch"),
         bookId,
         title: title?.trim() || `Chapter ${siblings.length + 1}`,
         body: "",
-        sort: siblings.length,
+        sort: Math.max(-1, ...siblings.map((c) => c.sort)) + 1,
         updatedAt: Date.now(),
       };
       mutate((prev) => ({
@@ -170,13 +214,10 @@ export function BookProvider({ children }: { children: ReactNode }) {
         chapters: [...prev.chapters, chapter],
         currentBookId: bookId,
         currentChapterId: chapter.id,
-        books: prev.books.map((b) =>
-          b.id === bookId ? { ...b, updatedAt: Date.now() } : b,
-        ),
       }));
       return chapter;
     },
-    [mutate, state.chapters],
+    [mutate],
   );
 
   const updateChapter = useCallback(
@@ -184,62 +225,135 @@ export function BookProvider({ children }: { children: ReactNode }) {
       mutate((prev) => ({
         ...prev,
         chapters: prev.chapters.map((c) =>
-          c.id === id ? { ...c, ...patch, updatedAt: Date.now() } : c,
+          c.id === id ? { ...c, ...patch, id: c.id, bookId: c.bookId, updatedAt: Date.now() } : c,
+        ),
+        books: prev.books.map((b) =>
+          prev.chapters.some((c) => c.id === id && c.bookId === b.id)
+            ? { ...b, updatedAt: Date.now() }
+            : b,
         ),
       }));
     },
     [mutate],
   );
 
-  const deleteChapter = useCallback(
+  const checkpointChapter = useCallback(
     (id: string) => {
       mutate((prev) => {
-        const target = prev.chapters.find((c) => c.id === id);
-        const remaining = prev.chapters.filter((c) => c.id !== id);
-        const nextInBook = remaining
-          .filter((c) => c.bookId === target?.bookId)
-          .sort((a, b) => a.sort - b.sort)[0];
+        const c = prev.chapters.find((c) => c.id === id);
+        if (!c) return prev;
+        const revisions = prev.revisions ?? [];
+        if (revisions.find((r) => r.chapterId === id)?.body === c.body) return prev;
         return {
           ...prev,
-          chapters: remaining,
-          currentChapterId:
-            prev.currentChapterId === id
-              ? (nextInBook?.id ?? null)
-              : prev.currentChapterId,
+          revisions: [
+            { id: uid("rev"), chapterId: id, title: c.title, body: c.body, createdAt: Date.now() },
+            ...revisions,
+          ].filter(
+            (r, i, all) => all.slice(0, i).filter((v) => v.chapterId === r.chapterId).length < 20,
+          ),
         };
       });
     },
     [mutate],
   );
 
-  const addSession = useCallback(
-    async (session: Session, audio?: Blob | null) => {
-      if (audio) {
-        try {
-          await saveAudio(session.audioId || session.id, audio);
-        } catch {
-          session = { ...session, audioId: null };
-        }
-      }
-      mutate((prev) => ({ ...prev, sessions: [...prev.sessions, session] }));
+  const restoreRevision = useCallback(
+    (id: string) => {
+      const r = current.current.revisions?.find((r) => r.id === id);
+      if (!r) return;
+      checkpointChapter(r.chapterId);
+      updateChapter(r.chapterId, { title: r.title, body: r.body });
     },
-    [mutate],
+    [checkpointChapter, updateChapter],
   );
 
+  const updateDraft = useCallback(
+    (draft: DictationDraft | null) => mutate((prev) => ({ ...prev, draft })),
+    [mutate],
+  );
   const updateSettings = useCallback(
-    (patch: Partial<Settings>) => {
-      mutate((prev) => ({ ...prev, settings: { ...prev.settings, ...patch } }));
-    },
+    (patch: Partial<Settings>) =>
+      mutate((prev) => ({ ...prev, settings: { ...prev.settings, ...patch } })),
     [mutate],
   );
 
-  const book = state.books.find((b) => b.id === state.currentBookId) ?? null;
+  const commitDraft = useCallback(
+    async (destination: "append" | "new") => {
+      const draft = current.current.draft;
+      if (!draft?.transcript.trim()) return;
+      const existing = current.current.chapters.find((c) => c.id === draft.chapterId);
+      if (!existing) throw new Error("Please choose a chapter first.");
+      checkpointChapter(existing.id);
+      mutate((prev) => {
+        const siblings = prev.chapters.filter((c) => c.bookId === draft.bookId);
+        const target: Chapter =
+          destination === "new"
+            ? {
+                id: uid("ch"),
+                bookId: draft.bookId,
+                title: `Chapter ${siblings.length + 1}`,
+                body: "",
+                sort: Math.max(-1, ...siblings.map((c) => c.sort)) + 1,
+                updatedAt: Date.now(),
+              }
+            : existing;
+        const updated = {
+          ...target,
+          body: [target.body, draft.transcript.trim()].filter(Boolean).join("\n\n"),
+          updatedAt: Date.now(),
+        };
+        return {
+          ...prev,
+          draft: null,
+          chapters:
+            destination === "new"
+              ? [...prev.chapters, updated]
+              : prev.chapters.map((c) => (c.id === target.id ? updated : c)),
+          sessions: [
+            ...prev.sessions,
+            {
+              ...draft,
+              id: uid("sess"),
+              chapterId: target.id,
+              transcript: draft.originalTranscript ?? draft.transcript,
+              createdAt: Date.now(),
+            },
+          ],
+          books: prev.books.map((b) =>
+            b.id === draft.bookId ? { ...b, updatedAt: Date.now() } : b,
+          ),
+          currentBookId: draft.bookId,
+          currentChapterId: target.id,
+        };
+      });
+      await flushSave();
+    },
+    [checkpointChapter, mutate, flushSave],
+  );
+
+  const importLibrary = useCallback(
+    async (library: PersistedState) => {
+      // Importer remaps every id; existing books are never overwritten.
+      mutate((prev) => ({
+        ...prev,
+        books: [...library.books, ...prev.books],
+        chapters: [...prev.chapters, ...library.chapters],
+        sessions: [...prev.sessions, ...library.sessions],
+        revisions: [...(prev.revisions ?? []), ...(library.revisions ?? [])],
+        currentBookId: library.currentBookId ?? prev.currentBookId,
+        currentChapterId: library.currentChapterId ?? prev.currentChapterId,
+        draft: prev.draft ?? library.draft,
+      }));
+      await flushSave();
+    },
+    [mutate, flushSave],
+  );
+
+  const book = state.books.find((b) => b.id === state.currentBookId) ?? state.books[0] ?? null;
   const chapters = useMemo(
-    () =>
-      state.chapters
-        .filter((c) => c.bookId === state.currentBookId)
-        .sort((a, b) => a.sort - b.sort),
-    [state.chapters, state.currentBookId],
+    () => state.chapters.filter((c) => c.bookId === book?.id).sort((a, b) => a.sort - b.sort),
+    [state.chapters, book?.id],
   );
   const chapter = chapters.find((c) => c.id === state.currentChapterId) ?? chapters[0] ?? null;
   const sessionsForChapter = useMemo(
@@ -249,45 +363,38 @@ export function BookProvider({ children }: { children: ReactNode }) {
         .sort((a, b) => b.createdAt - a.createdAt),
     [state.sessions, chapter?.id],
   );
-
-  const value = useMemo<BookContextValue>(
-    () => ({
-      ready,
-      state,
-      book,
-      chapter,
-      chapters,
-      sessionsForChapter,
-      setCurrent,
-      createBook,
-      updateBook,
-      addChapter,
-      updateChapter,
-      deleteChapter,
-      addSession,
-      updateSettings,
-    }),
-    [
-      ready,
-      state,
-      book,
-      chapter,
-      chapters,
-      sessionsForChapter,
-      setCurrent,
-      createBook,
-      updateBook,
-      addChapter,
-      updateChapter,
-      deleteChapter,
-      addSession,
-      updateSettings,
-    ],
+  return (
+    <BookContext.Provider
+      value={{
+        state,
+        ready,
+        loadError,
+        saveError,
+        saveStatus,
+        book,
+        chapter,
+        chapters,
+        sessionsForChapter,
+        setCurrent,
+        createBook,
+        updateBook,
+        addChapter,
+        updateChapter,
+        updateSettings,
+        updateDraft,
+        commitDraft,
+        checkpointChapter,
+        restoreRevision,
+        importLibrary,
+        flushSave,
+      }}
+    >
+      {children}
+    </BookContext.Provider>
   );
-
-  return <BookContext.Provider value={value}>{children}</BookContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useBook() {
   const ctx = useContext(BookContext);
   if (!ctx) throw new Error("useBook must be used within BookProvider");

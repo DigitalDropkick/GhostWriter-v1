@@ -3,3 +3,12 @@ node_modules/
 .github_repo
 .env
 .env.*
+
+# Local builds, browser QA, and model caches
+dist/
+.output/
+.vercel/
+.nitro/
+.cache/
+.test-results/
+screenshots/qa-*/

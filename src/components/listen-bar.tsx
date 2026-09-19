@@ -2,156 +2,199 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useBook } from "@/lib/book-store";
 import { loadAudio } from "@/lib/storage";
-import { Pause, Play, Square } from "lucide-react";
-import { toast } from "sonner";
-
-function splitForSpeech(text: string, max = 3800): string[] {
-  const paras = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
-  const chunks: string[] = [];
-  let buf = "";
-  for (const p of paras) {
-    if ((buf + "\n\n" + p).length > max && buf) {
-      chunks.push(buf);
-      buf = p;
-    } else {
-      buf = buf ? `${buf}\n\n${p}` : p;
-    }
-  }
-  if (buf) chunks.push(buf);
-  return chunks.length ? chunks : [text.slice(0, max)];
-}
+import { splitForSpeech } from "@/lib/local-speech";
+import { Play, Square } from "lucide-react";
 
 export function ListenBar() {
   const { chapter, sessionsForChapter } = useBook();
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const stopFlag = useRef(false);
-  const [playing, setPlaying] = useState<"page" | "tape" | null>(null);
+  const [playing, setPlaying] = useState(false);
   const [status, setStatus] = useState("");
-
-  useEffect(() => {
-    return () => stopAll();
-  }, []);
+  const [rate, setRate] = useState(0.9);
+  const [recordingId, setRecordingId] = useState("");
+  const audio = useRef<HTMLAudioElement | null>(null);
+  const objectUrl = useRef<string | null>(null);
+  const utterance = useRef<SpeechSynthesisUtterance | null>(null);
+  const generation = useRef(0);
+  const recordings = sessionsForChapter.filter((s) => s.audioId);
 
   function stopAll() {
-    stopFlag.current = true;
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
-    }
-    setPlaying(null);
+    generation.current += 1;
+    window.speechSynthesis?.cancel();
+    utterance.current = null;
+    audio.current?.pause();
+    if (audio.current) audio.current.src = "";
+    audio.current = null;
+    if (objectUrl.current) URL.revokeObjectURL(objectUrl.current);
+    objectUrl.current = null;
+    setPlaying(false);
     setStatus("");
   }
-
-  function playUrl(url: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      const el = audioRef.current ?? new Audio();
-      audioRef.current = el;
-      el.src = url;
-      el.onended = () => resolve();
-      el.onerror = () => reject(new Error("audio"));
-      el.play().catch(reject);
-    });
-  }
+  useEffect(() => {
+    stopAll();
+    setRecordingId("");
+    return stopAll;
+  }, [chapter?.id]);
 
   async function listenToPage() {
-    const text = chapter?.body.trim() ?? "";
-    if (!text) {
-      toast("This chapter is still empty.");
+    stopAll();
+    const token = generation.current;
+    if (!chapter?.body.trim()) return;
+    if (!("speechSynthesis" in window)) {
+      setStatus(
+        "This browser has no installed reading voice. Try Microsoft Edge on the Windows laptop.",
+      );
       return;
     }
-    stopFlag.current = false;
-    setPlaying("page");
-    setStatus("Reading the page…");
-    const chunks = splitForSpeech(text);
-    try {
-      for (let i = 0; i < chunks.length; i += 1) {
-        if (stopFlag.current) return;
-        setStatus(
-          chunks.length > 1
-            ? `Reading the page… ${i + 1} of ${chunks.length}`
-            : "Reading the page…",
-        );
-        const res = await fetch("/api/tts", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: chunks[i], voice: "lux" }),
-        });
-        if (!res.ok) {
-          toast("I could not read the page just now.");
-          stopAll();
-          return;
-        }
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        try {
-          await playUrl(url);
-        } finally {
-          URL.revokeObjectURL(url);
-        }
+    setPlaying(true);
+    setStatus("Finding an installed voice…");
+    const synth = window.speechSynthesis;
+    if (!synth.getVoices().length) {
+      await new Promise<void>((resolve) => {
+        const done = () => {
+          clearTimeout(timer);
+          synth.removeEventListener("voiceschanged", done);
+          resolve();
+        };
+        const timer = window.setTimeout(done, 2000);
+        synth.addEventListener("voiceschanged", done);
+      });
+    }
+    if (token !== generation.current) return;
+    const voices = synth.getVoices().filter((v) => v.localService && /^en(?:-|$)/i.test(v.lang));
+    const voice = voices.find((v) => v.default) ?? voices[0];
+    if (!voice) {
+      setPlaying(false);
+      setStatus(
+        "No English voice installed for private reading. In Windows Settings, add an English speech voice, then reopen this page. No text was sent online.",
+      );
+      return;
+    }
+    const chunks = splitForSpeech(chapter.body);
+    const speak = (index: number) => {
+      if (token !== generation.current) return;
+      if (index === chunks.length) {
+        stopAll();
+        return;
       }
-    } catch {
-      if (!stopFlag.current) toast("Listening stopped.");
-    }
-    if (!stopFlag.current) stopAll();
+      setStatus(`Reading privately · ${index + 1} of ${chunks.length}`);
+      const next = new SpeechSynthesisUtterance(chunks[index]);
+      utterance.current = next;
+      next.voice = voice;
+      next.lang = voice.lang;
+      next.rate = rate;
+      next.onend = () => speak(index + 1);
+      next.onerror = () => {
+        if (token === generation.current) {
+          stopAll();
+          setStatus("Reading stopped. You can try again.");
+        }
+      };
+      synth.speak(next);
+    };
+    speak(0);
   }
-
   async function listenToTape() {
-    const withAudio = sessionsForChapter.find((s) => s.audioId);
-    if (!withAudio?.audioId) {
-      toast("There is no original recording for this chapter yet.");
-      return;
-    }
-    const blob = await loadAudio(withAudio.audioId);
-    if (!blob) {
-      toast("I could not find that recording on this computer.");
-      return;
-    }
-    stopFlag.current = false;
-    setPlaying("tape");
-    setStatus("Playing what you said…");
-    const url = URL.createObjectURL(blob);
+    stopAll();
+    const token = generation.current;
+    const selected = recordings.find((s) => s.id === recordingId) ?? recordings[0];
+    if (!selected?.audioId) return;
+    setPlaying(true);
+    setStatus("Opening your recording…");
     try {
-      await playUrl(url);
+      const blob = await loadAudio(selected.audioId);
+      if (token !== generation.current) return;
+      if (!blob) throw new Error("Recording missing");
+      objectUrl.current = URL.createObjectURL(blob);
+      const el = new Audio(objectUrl.current);
+      audio.current = el;
+      el.onended = () => {
+        if (token === generation.current) stopAll();
+      };
+      el.onerror = () => {
+        if (token === generation.current) {
+          stopAll();
+          setStatus("This recording could not be played.");
+        }
+      };
+      await el.play();
+      if (token === generation.current) setStatus("Playing your saved recording…");
     } catch {
-      toast("The recording would not play.");
-    } finally {
-      URL.revokeObjectURL(url);
-      if (!stopFlag.current) stopAll();
+      if (token === generation.current) {
+        stopAll();
+        setStatus("Could not play this recording. Try another recording or restore a backup.");
+      }
     }
   }
-
-  const busy = playing !== null;
-
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-      {busy ? (
-        <>
-          <Button size="lg" variant="ink" onClick={stopAll}>
-            {playing === "page" ? (
-              <Pause className="size-5" />
-            ) : (
-              <Square className="size-5 fill-current" />
-            )}
-            Stop
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-3">
+        {playing ? (
+          <Button variant="ink" onClick={stopAll}>
+            <Square className="size-5" />
+            Stop listening
           </Button>
-          <p className="text-lg text-ink-soft">{status}</p>
-        </>
-      ) : (
-        <>
-          <Button size="lg" variant="listen" onClick={() => void listenToPage()}>
-            <Play className="size-5" />
-            Listen to the page
-          </Button>
-          <Button
-            size="lg"
-            variant="secondary"
-            onClick={() => void listenToTape()}
-            disabled={!sessionsForChapter.some((s) => s.audioId)}
-          >
-            Play my recording
-          </Button>
-        </>
+        ) : (
+          <>
+            <Button
+              variant="listen"
+              disabled={!chapter?.body.trim()}
+              onClick={() => void listenToPage()}
+            >
+              <Play className="size-5" />
+              Listen to the page
+            </Button>
+            <Button
+              variant="secondary"
+              disabled={!recordings.length}
+              onClick={() => void listenToTape()}
+            >
+              Play my recording
+            </Button>
+          </>
+        )}
+      </div>
+      {status && (
+        <p role="status" className="text-base text-ink-soft">
+          {status}
+        </p>
       )}
+      <details className="text-base text-ink-soft">
+        <summary className="cursor-pointer">Reading speed & recordings</summary>
+        <div className="mt-3 flex flex-wrap gap-4">
+          <label>
+            Reading speed
+            <select
+              aria-label="Reading speed"
+              disabled={playing}
+              value={rate}
+              onChange={(e) => setRate(Number(e.target.value))}
+              className="ml-2 min-h-12 rounded-md border border-rule bg-paper px-2"
+            >
+              <option value={0.75}>Slower</option>
+              <option value={0.9}>Gentle</option>
+              <option value={1}>Normal</option>
+            </select>
+          </label>
+          {recordings.length > 0 && (
+            <label className="min-w-0">
+              Recording
+              <select
+                aria-label="Saved recording"
+                disabled={playing}
+                value={recordingId || recordings[0].id}
+                onChange={(e) => setRecordingId(e.target.value)}
+                className="max-w-full min-h-12 rounded-md border border-rule bg-paper px-2"
+              >
+                {recordings.map((s, i) => (
+                  <option key={s.id} value={s.id}>
+                    {new Date(s.createdAt).toLocaleString()} · {recordings.length - i}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+      </details>
     </div>
   );
 }

@@ -6,8 +6,8 @@ export function GettingStartedSheet({ address }: { address?: string }) {
         <h1 className="font-serif">You talk. It writes. You read, hear, or print.</h1>
         <p className="start-lead">
           That is the whole program. Your story stays in your voice — your words,
-          your humor, the way you tell a thing. Nothing is kept to train anyone
-          else’s system.
+          your humor, the way you tell a thing. Private dictation keeps audio on this
+          computer. The first use downloads speech files, not your recording.
         </p>
       </header>
 
@@ -17,7 +17,7 @@ export function GettingStartedSheet({ address }: { address?: string }) {
           <p className="start-url">{address}</p>
         ) : (
           <p className="start-url start-url-blank">
-            Adam will write this here, or you copy it from his message.
+            Addam will write this here, or you copy it from his message.
           </p>
         )}
         <p className="start-hint">
@@ -59,34 +59,34 @@ export function GettingStartedSheet({ address }: { address?: string }) {
         <h2>How to write</h2>
         <ol>
           <li>
-            <span>1</span>
+            <span>1</span><div>
             Open your bookmark.
-          </li>
+          </div></li>
           <li>
-            <span>2</span>
+            <span>2</span><div>
             The first time, press <strong>Start my book</strong>. Put your name on
             the title page.
-          </li>
+          </div></li>
           <li>
-            <span>3</span>
-            Press the big green <strong>Talk</strong> button. Tell the memory the
+            <span>3</span><div>
+            Press <strong>Talk → Start private dictation</strong>. Tell the story the
             way you would tell family.
-          </li>
+          </div></li>
           <li>
-            <span>4</span>
+            <span>4</span><div>
             Press <strong>I’m finished</strong>. Read what it heard. Fix any word
             that looks wrong — that is normal.
-          </li>
+          </div></li>
           <li>
-            <span>5</span>
-            Press <strong>Write this into the book</strong>. It will set the page
-            in your voice.
-          </li>
+            <span>5</span><div>
+            Press <strong>Write this into the book</strong>. Earlier pages
+            stay unchanged.
+          </div></li>
           <li>
-            <span>6</span>
+            <span>6</span><div>
             Whenever you like: <strong>Read</strong> (quiet page),{" "}
-            <strong>Listen to the page</strong>, or <strong>Print</strong>.
-          </li>
+            <strong>Listen to the page</strong>, or <strong>Print</strong>. Use <strong>Backups</strong> to save a copy.
+          </div></li>
         </ol>
       </section>
 
@@ -109,7 +109,7 @@ export function GettingStartedSheet({ address }: { address?: string }) {
           </ul>
         </div>
         <p className="start-call">
-          Anything else — call Adam at <strong>(502) 427-9894</strong>.
+          Anything else — call Addam at <strong>(502) 427-9894</strong>.
         </p>
       </footer>
     </article>

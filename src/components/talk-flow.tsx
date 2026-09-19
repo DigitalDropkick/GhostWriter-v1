@@ -2,454 +2,666 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useBook } from "@/lib/book-store";
 import { shapeDictation } from "@/lib/ai";
-import { formatClock, uid, wordCount } from "@/lib/utils";
-import { Keyboard, LoaderCircle, Mic, Square, Upload } from "lucide-react";
+import { decodeRecording, MAX_RECORDING_BYTES, type SpeechReply } from "@/lib/local-speech";
+import { loadAudio, saveAudio } from "@/lib/storage";
+import { downloadBlob, formatClock, uid, wordCount } from "@/lib/utils";
+import type { DictationDraft } from "@/lib/types";
+import { Download, Keyboard, LoaderCircle, Mic, ShieldCheck, Square, Upload } from "lucide-react";
 import { toast } from "sonner";
 
-type TalkPhase = "idle" | "recording" | "review" | "shaping";
+type Phase = "idle" | "preparing" | "recording" | "working" | "review";
 
-interface SpeechRec {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  start: () => void;
-  stop: () => void;
-  abort?: () => void;
-  onresult: ((ev: SpeechRecEvent) => void) | null;
-  onerror: ((ev: { error?: string }) => void) | null;
-  onend: (() => void) | null;
-}
-
-interface SpeechRecEvent {
-  resultIndex: number;
-  results: ArrayLike<{
-    isFinal: boolean;
-    0: { transcript: string };
-  }>;
-}
-
-function getSpeechRecognizer(): SpeechRec | null {
-  const w = window as unknown as {
-    SpeechRecognition?: new () => SpeechRec;
-    webkitSpeechRecognition?: new () => SpeechRec;
+export function TalkFlow({ onClose, startInType }: { onClose: () => void; startInType?: boolean }) {
+  const { state, book, chapter, updateDraft, commitDraft, flushSave } = useBook();
+  const initial = state.draft ?? {
+    bookId: book!.id,
+    chapterId: chapter!.id,
+    transcript: "",
+    audioId: null,
+    durationMs: 0,
   };
-  const Ctor = w.SpeechRecognition || w.webkitSpeechRecognition;
-  return Ctor ? new Ctor() : null;
-}
-
-function pickMime(): string | undefined {
-  const types = [
-    "audio/webm;codecs=opus",
-    "audio/webm",
-    "audio/mp4",
-    "audio/ogg",
-  ];
-  if (typeof MediaRecorder === "undefined") return undefined;
-  return types.find((t) => MediaRecorder.isTypeSupported(t));
-}
-
-export function TalkFlow({
-  onClose,
-  startInType,
-}: {
-  onClose: () => void;
-  startInType?: boolean;
-}) {
-  const { book, chapter, addChapter, updateChapter, addSession } = useBook();
-  const [phase, setPhase] = useState<TalkPhase>(startInType ? "review" : "idle");
-  const [seconds, setSeconds] = useState(0);
-  const [live, setLive] = useState("");
-  const [transcript, setTranscript] = useState("");
-  const [micError, setMicError] = useState<string | null>(null);
+  const draft = useRef<DictationDraft>(initial);
+  const [transcript, setTranscript] = useState(initial.transcript);
+  const [phase, setPhase] = useState<Phase>(state.draft || startInType ? "review" : "idle");
+  const [seconds, setSeconds] = useState(initial.durationMs / 1000);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const [audioWarning, setAudioWarning] = useState("");
   const [destination, setDestination] = useState<"append" | "new">("append");
-  const [note, setNote] = useState<string | null>(null);
-  const [busyLabel, setBusyLabel] = useState("Setting your words on the page…");
-
-  const mediaRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
-  const recRef = useRef<SpeechRec | null>(null);
-  const keepListening = useRef(false);
-  const startedAt = useRef(0);
-  const audioBlob = useRef<Blob | null>(null);
+  const [consentOpen, setConsentOpen] = useState(false);
+  const [beforePolish, setBeforePolish] = useState<string | null>(
+    initial.originalTranscript ?? null,
+  );
+  const [hasAudio, setHasAudio] = useState(!!initial.audioId);
+  const [level, setLevel] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
+  const recorder = useRef<MediaRecorder | null>(null);
+  const stream = useRef<MediaStream | null>(null);
+  const audio = useRef<Blob | null>(null);
+  const chunks = useRef<Blob[]>([]);
+  const worker = useRef<Worker | null>(null);
+  const rejectJob = useRef<((error: Error) => void) | null>(null);
+  const generation = useRef(0);
+  const startedAt = useRef(0);
+  const mounted = useRef(true);
+  const submitting = useRef(false);
+  const meterContext = useRef<AudioContext | null>(null);
+  const stopDone = useRef<Promise<Blob> | null>(null);
+  const recordingId = useRef<string | null>(null);
+  const recordingWrites = useRef<Promise<void>>(Promise.resolve());
+  const polishing = useRef(false);
+  const finishRef = useRef<() => void>(() => {});
+
+  function persist(patch: Partial<DictationDraft>) {
+    draft.current = { ...draft.current, ...patch };
+    updateDraft(draft.current);
+  }
+  function changeWords(text: string) {
+    setTranscript(text);
+    persist({ transcript: text });
+  }
+  function releaseMic() {
+    stream.current?.getTracks().forEach((track) => track.stop());
+    stream.current = null;
+    void meterContext.current?.close().catch(() => {});
+    meterContext.current = null;
+  }
+  function cancelWork() {
+    generation.current += 1;
+    rejectJob.current?.(new Error("Cancelled. Your recording is still available."));
+    rejectJob.current = null;
+    worker.current?.terminate();
+    worker.current = null;
+    releaseMic();
+    setPhase(hasAudio || transcript ? "review" : "idle");
+    setMessage("");
+  }
 
   useEffect(() => {
-    if (phase !== "recording") return;
-    const id = window.setInterval(() => {
-      setSeconds(Math.floor((Date.now() - startedAt.current) / 1000));
-    }, 250);
-    return () => window.clearInterval(id);
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+      generation.current += 1;
+      rejectJob.current?.(new Error("Closed"));
+      worker.current?.terminate();
+      if (recorder.current?.state === "recording") recorder.current.stop();
+      releaseMic();
+    };
+  }, []);
+
+  useEffect(() => {
+    const busy = phase === "recording" || phase === "preparing" || phase === "working";
+    if (!busy) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
   }, [phase]);
 
   useEffect(() => {
-    return () => stopEverything();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (phase !== "recording") return;
+    const id = window.setInterval(() => setSeconds((Date.now() - startedAt.current) / 1000), 250);
+    return () => window.clearInterval(id);
+  }, [phase]);
 
-  function stopEverything() {
-    keepListening.current = false;
+  function runWorker(type: "prepare" | "transcribe", samples?: Float32Array): Promise<string> {
+    if (!worker.current)
+      worker.current = new Worker(new URL("../workers/transcribe.worker.ts", import.meta.url), {
+        type: "module",
+      });
+    const w = worker.current;
+    return new Promise((resolve, reject) => {
+      rejectJob.current = reject;
+      w.onerror = () =>
+        reject(
+          new Error(
+            "Private dictation could not start. Try again, or save your recording and contact Addam.",
+          ),
+        );
+      w.onmessage = (event: MessageEvent<SpeechReply>) => {
+        const reply = event.data;
+        if (reply.type === "progress") setMessage(reply.message);
+        if (reply.type === "ready" || reply.type === "result") {
+          rejectJob.current = null;
+          resolve(reply.type === "result" ? reply.text : "");
+        }
+        if (reply.type === "error") {
+          rejectJob.current = null;
+          reject(new Error(reply.message));
+        }
+      };
+      w.postMessage({ type, audio: samples }, samples ? [samples.buffer as ArrayBuffer] : []);
+    });
+  }
+
+  async function transcribe(blob: Blob) {
+    const token = ++generation.current;
+    setPhase("working");
+    setError("");
+    setMessage("Opening your recording on this computer…");
     try {
-      recRef.current?.stop();
-    } catch {
-      /* ignore */
+      const samples = await decodeRecording(blob);
+      if (token !== generation.current) return;
+      const text = await runWorker("transcribe", samples);
+      if (token !== generation.current) return;
+      if (!text)
+        throw new Error(
+          "No words were found. You can listen to the recording, type the words, or try again.",
+        );
+      changeWords(text);
+      persist({ originalTranscript: text });
+    } catch (err) {
+      if (token === generation.current)
+        setError(err instanceof Error ? err.message : "Could not transcribe this recording.");
+    } finally {
+      if (mounted.current && token === generation.current) setPhase("review");
     }
-    recRef.current = null;
-    if (mediaRef.current && mediaRef.current.state !== "inactive") {
-      try {
-        mediaRef.current.stop();
-      } catch {
-        /* ignore */
-      }
-    }
-    streamRef.current?.getTracks().forEach((t) => t.stop());
-    streamRef.current = null;
   }
 
   async function startTalking() {
-    setMicError(null);
-    setLive("");
-    chunksRef.current = [];
-    audioBlob.current = null;
-    keepListening.current = true;
-    startedAt.current = Date.now();
-    setSeconds(0);
-    setPhase("recording");
-
+    if (phase === "preparing" || recorder.current?.state === "recording") return;
+    const token = ++generation.current;
+    setPhase("preparing");
+    setError("");
+    setMessage("Preparing private dictation. The first download may take a few minutes…");
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
-      const mime = pickMime();
-      const recorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-      mediaRef.current = recorder;
-      recorder.ondataavailable = (ev) => {
-        if (ev.data.size) chunksRef.current.push(ev.data);
-      };
-      recorder.onstop = () => {
-        const type = recorder.mimeType || "audio/webm";
-        if (chunksRef.current.length) {
-          audioBlob.current = new Blob(chunksRef.current, { type });
-        }
-      };
-      recorder.start(1000);
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined")
+        throw new Error(
+          "Microphone recording needs a secure page in Edge or Chrome. You can still type or open a recording.",
+        );
+      await runWorker("prepare");
+      if (token !== generation.current) return;
+      setMessage("Allow the microphone when your browser asks…");
+      const input = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true },
+      });
+      if (token !== generation.current) {
+        input.getTracks().forEach((t) => t.stop());
+        return;
+      }
+      stream.current = input;
+      const mimeType = ["audio/webm;codecs=opus", "audio/mp4", "audio/ogg"].find((mime) =>
+        MediaRecorder.isTypeSupported(mime),
+      );
+      const rec = new MediaRecorder(input, {
+        ...(mimeType ? { mimeType } : {}),
+        audioBitsPerSecond: 64000,
+      });
+      recorder.current = rec;
+      chunks.current = [];
+      recordingId.current = uid("aud");
+      recordingWrites.current = Promise.resolve();
+      let lastCheckpoint = 0;
+      audio.current = null;
+      let totalBytes = 0;
+      stopDone.current = new Promise((resolve) => {
+        rec.ondataavailable = (event) => {
+          if (event.data.size) {
+            chunks.current.push(event.data);
+            totalBytes += event.data.size;
+          }
+          if (
+            Date.now() - lastCheckpoint >= 5000 &&
+            rec.state === "recording" &&
+            chunks.current.length
+          ) {
+            lastCheckpoint = Date.now();
+            const checkpoint = new Blob(chunks.current, { type: rec.mimeType || "audio/webm" });
+            const id = recordingId.current!;
+            const durationMs = Date.now() - startedAt.current;
+            recordingWrites.current = recordingWrites.current
+              .then(async () => {
+                await saveAudio(id, checkpoint);
+                if (mounted.current && rec.state === "recording") {
+                  persist({ audioId: id, durationMs });
+                  setHasAudio(true);
+                }
+              })
+              .catch(() => {
+                if (mounted.current)
+                  setAudioWarning(
+                    "The recording could not be saved yet. Keep this page open and download the recording when finished.",
+                  );
+              });
+          }
+          if (totalBytes > MAX_RECORDING_BYTES * 0.9 && rec.state === "recording")
+            finishRef.current();
+        };
+        rec.onstop = () => {
+          const blob = new Blob(chunks.current, { type: rec.mimeType || "audio/webm" });
+          audio.current = blob;
+          resolve(blob);
+          if (mounted.current && rec === recorder.current) finishRef.current();
+        };
+        rec.onerror = () => {
+          setError("The microphone stopped. We will recover what was recorded.");
+          finishRef.current();
+        };
+      });
+      startedAt.current = Date.now();
+      setSeconds(0);
+      rec.start(1000);
+      setPhase("recording");
+      try {
+        const context = new AudioContext();
+        meterContext.current = context;
+        const analyser = context.createAnalyser();
+        analyser.fftSize = 256;
+        context.createMediaStreamSource(input).connect(analyser);
+        const buffer = new Uint8Array(analyser.fftSize);
+        const tick = () => {
+          if (rec.state !== "recording" || !mounted.current) return;
+          analyser.getByteTimeDomainData(buffer);
+          setLevel(Math.min(100, Math.max(...buffer.map((n) => Math.abs(n - 128))) * 3));
+          requestAnimationFrame(tick);
+        };
+        tick();
+      } catch {
+        /* A missing volume meter must not stop recording. */
+      }
+    } catch (err) {
+      releaseMic();
+      if (token !== generation.current) return;
+      setError(
+        err instanceof DOMException && err.name === "NotAllowedError"
+          ? "Microphone access was blocked. Use the site controls beside the address bar to allow the microphone, then try again."
+          : err instanceof Error
+            ? err.message
+            : "Could not open the microphone.",
+      );
+      setPhase("idle");
+    }
+  }
+
+  const finishing = useRef(false);
+  async function finishTalking() {
+    if (finishing.current || !stopDone.current) return;
+    finishing.current = true;
+    setPhase("working");
+    setMessage("Keeping the final words of your recording…");
+    const durationMs = Date.now() - startedAt.current;
+    if (recorder.current?.state !== "inactive") recorder.current?.stop();
+    // MediaRecorder guarantees the final dataavailable before stop, not after an arbitrary timeout.
+    const blob = await stopDone.current;
+    releaseMic();
+    if (!mounted.current) return;
+    await recordingWrites.current;
+    await keepRecording(blob, durationMs);
+    finishing.current = false;
+    await transcribe(blob);
+  }
+  finishRef.current = () => {
+    void finishTalking();
+  };
+
+  async function keepRecording(blob: Blob, durationMs: number) {
+    audio.current = blob;
+    setHasAudio(true);
+    const audioId = recordingId.current ?? uid("aud");
+    try {
+      await saveAudio(audioId, blob);
+      persist({ audioId, durationMs });
+      await flushSave();
+      setAudioWarning("");
     } catch {
-      setMicError(
-        "This browser would not turn the microphone on. You can type, paste, or upload a recording instead.",
+      setAudioWarning(
+        "This recording is only in this open page. Download the recording before closing; browser storage could not save it.",
       );
     }
-
-    const rec = getSpeechRecognizer();
-    if (rec) {
-      rec.continuous = true;
-      rec.interimResults = true;
-      rec.lang = "en-US";
-      rec.onresult = (ev) => {
-        let finalText = "";
-        let interim = "";
-        for (let i = ev.resultIndex; i < ev.results.length; i += 1) {
-          const piece = ev.results[i][0].transcript;
-          if (ev.results[i].isFinal) finalText += `${piece} `;
-          else interim += piece;
-        }
-        if (finalText) {
-          setTranscript((prev) => `${prev} ${finalText}`.replace(/\s+/g, " ").trim());
-        }
-        setLive(interim);
-      };
-      rec.onend = () => {
-        if (keepListening.current) {
-          try {
-            rec.start();
-          } catch {
-            /* ignore */
-          }
-        }
-      };
-      rec.onerror = () => {
-        /* live captions are optional */
-      };
-      recRef.current = rec;
-      try {
-        rec.start();
-      } catch {
-        /* ignore */
-      }
-    }
   }
 
-  async function finishTalking() {
-    keepListening.current = false;
-    stopEverything();
-    await new Promise((r) => setTimeout(r, 120));
-    setBusyLabel("Listening back through what you said…");
-    setPhase("shaping");
-
-    let text = transcript.trim();
-    const blob = audioBlob.current;
-    if (blob && blob.size > 400) {
-      try {
-        const fd = new FormData();
-        fd.append("file", blob, "session.webm");
-        const res = await fetch("/api/transcribe", { method: "POST", body: fd });
-        const json = (await res.json()) as { ok?: boolean; text?: string };
-        if (json.ok && json.text?.trim()) text = json.text.trim();
-      } catch {
-        /* keep live captions */
-      }
-    }
-    setTranscript(text);
-    setLive("");
-    setPhase("review");
-    setBusyLabel("Setting your words on the page…");
-    if (!text) {
-      toast("I didn't catch any words. You can type them, or talk again.");
-    }
+  async function getRecording() {
+    return audio.current ?? (draft.current.audioId ? await loadAudio(draft.current.audioId) : null);
   }
-
-  async function onUpload(file: File) {
-    audioBlob.current = file;
-    setBusyLabel("Listening to your recording…");
-    setPhase("shaping");
+  async function downloadRecording() {
     try {
-      const fd = new FormData();
-      fd.append("file", file, file.name);
-      const res = await fetch("/api/transcribe", { method: "POST", body: fd });
-      const json = (await res.json()) as { ok?: boolean; text?: string; error?: string };
-      if (json.ok && json.text?.trim()) {
-        setTranscript(json.text.trim());
-      } else {
-        toast(json.error || "I could not make out that recording.");
-      }
-    } catch {
-      toast("I could not read that file.");
+      const blob = await getRecording();
+      if (!blob) throw new Error("The recording was not found on this computer.");
+      downloadBlob(
+        `My-recording.${blob.type.includes("mp4") ? "m4a" : blob.type.includes("wav") ? "wav" : blob.type.includes("mpeg") ? "mp3" : blob.type.includes("ogg") ? "ogg" : "webm"}`,
+        blob,
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not open the recording.");
     }
-    setPhase("review");
-    setBusyLabel("Setting your words on the page…");
   }
-
-  async function writeIntoBook() {
-    if (!book || !chapter) return;
-    const spoken = transcript.trim();
-    if (spoken.length < 8) {
-      toast("Please talk a little more, or type a few sentences, then try again.");
+  async function retryTranscription() {
+    try {
+      const blob = await getRecording();
+      if (blob) await transcribe(blob);
+      else setError("Recording not found. You can still type your words below.");
+    } catch {
+      setError("Could not open the saved recording.");
+    }
+  }
+  async function onUpload(file: File) {
+    if (file.size > MAX_RECORDING_BYTES) {
+      setError("Please choose a recording smaller than 100 MB.");
       return;
     }
-    setPhase("shaping");
-    setNote(null);
-
+    if (!file.type.startsWith("audio/") && !/\.(mp3|wav|m4a|ogg|webm|flac|aac)$/i.test(file.name)) {
+      setError("Choose an audio recording such as MP3, WAV, or M4A.");
+      return;
+    }
+    recordingId.current = null;
+    setPhase("working");
+    setMessage("Saving your recording on this computer…");
+    await keepRecording(file, 0);
+    await transcribe(file);
+  }
+  function closeSafely() {
+    if (
+      audioWarning &&
+      !window.confirm(
+        "The recording could not be saved. Download it first if you want to keep it. Leave this passage anyway?",
+      )
+    )
+      return;
+    onClose();
+  }
+  async function writeIntoBook() {
+    if (submitting.current || !transcript.trim()) return;
+    if (
+      audioWarning &&
+      !window.confirm(
+        "The recording could not be saved. Add the text without a saved recording? Download the recording first if you want to keep it.",
+      )
+    )
+      return;
+    submitting.current = true;
+    setPhase("working");
+    setMessage("Saving your words…");
+    persist({ transcript });
     try {
-    const sessionId = uid("sess");
-    const audioId = audioBlob.current ? uid("aud") : null;
-    await addSession(
-      {
-        id: sessionId,
-        bookId: book.id,
-        chapterId: chapter.id,
-        transcript: spoken,
-        audioId,
-        durationMs: seconds * 1000,
-        createdAt: Date.now(),
-      },
-      audioBlob.current,
-    );
-
-    const target =
-      destination === "new" ? addChapter(book.id, "New chapter") : chapter;
-
-    const result = await shapeDictation({
-      data: {
-        transcript: spoken,
-        existingBody: destination === "new" ? "" : target.body,
-        chapterTitle: target.title,
-        bookTitle: book.title,
-        author: book.author,
-        kind: book.kind,
-        polish: book.polish,
-        voiceNotes: book.voiceNotes,
-        destination,
-      },
-    });
-
-    if (result.ok) {
-      updateChapter(target.id, {
-        title: result.chapterTitle,
-        body: result.body,
+      await commitDraft(destination);
+      toast("Your words are saved in the book.");
+    } catch {
+      toast("Your words are on the page, but saving needs attention. Use the save warning above.");
+    }
+    onClose();
+  }
+  async function polish() {
+    polishing.current = true;
+    setConsentOpen(false);
+    setPhase("working");
+    setMessage("Asking for help with this passage…");
+    const original = draft.current.originalTranscript ?? transcript;
+    persist({ originalTranscript: original });
+    try {
+      const result = await shapeDictation({
+        data: {
+          transcript,
+          kind: book!.kind,
+          polish: book!.polish,
+          voiceNotes: book!.voiceNotes,
+          onlineConsent: true,
+        },
       });
-      setNote(result.note);
-      toast(result.note);
-      onClose();
-    } else {
-      if (!target.body) {
-        updateChapter(target.id, { body: spoken });
-      } else {
-        updateChapter(target.id, {
-          body: `${target.body.trim()}\n\n${spoken}`,
-        });
-      }
-      toast(result.error + " I saved your spoken words on the page so nothing is lost.");
-      onClose();
-    }
+      if (!result.ok) throw new Error(result.error);
+      setBeforePolish(original);
+      changeWords(result.body);
+      toast("Review the suggested wording before adding it to your book.");
     } catch (err) {
-      toast(
-        err instanceof Error
-          ? err.message
-          : "Something went wrong. Your words are still in the box.",
+      setError(
+        err instanceof Error && err.message === "Unauthorized"
+          ? "Sign in to use optional online writing help. Your private dictation still works without an account."
+          : err instanceof Error
+            ? err.message
+            : "Online help could not finish. Your original words are unchanged.",
       );
-      setPhase("review");
+    } finally {
+      polishing.current = false;
+      if (mounted.current) setPhase("review");
     }
-  }
-
-  if (phase === "shaping") {
-    return (
-      <div className="flex min-h-[22rem] flex-col items-center justify-center gap-5 px-6 text-center">
-        <LoaderCircle className="size-10 animate-spin text-moss" />
-        <p className="font-serif text-3xl text-ink">{busyLabel}</p>
-        <p className="max-w-md text-lg text-ink-soft">
-          This can take a short moment. Do not close the page.
-        </p>
-      </div>
-    );
-  }
-
-  if (phase === "recording") {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <span className="relative grid size-14 place-items-center">
-            <span className="pulse-ring absolute inset-0 rounded-full bg-moss" />
-            <span className="relative size-5 rounded-full bg-moss" />
-          </span>
-          <div>
-            <p className="font-serif text-3xl text-ink">I'm listening</p>
-            <p className="font-sans text-xl tabular-nums text-ink-soft">
-              {formatClock(seconds * 1000)}
-            </p>
-          </div>
-        </div>
-        <div className="min-h-32 rounded-[22px] border border-rule bg-paper-deep/60 px-5 py-4 text-xl leading-relaxed text-ink">
-          {transcript || live ? (
-            <>
-              {transcript} <span className="text-ink-faint">{live}</span>
-            </>
-          ) : (
-            <span className="text-ink-faint">
-              Go ahead. Tell it the way you would tell a friend.
-            </span>
-          )}
-        </div>
-        {micError ? <p className="text-lg text-ink-soft">{micError}</p> : null}
-        <Button size="xl" variant="ink" className="w-full sm:w-auto" onClick={() => void finishTalking()}>
-          <Square className="size-5 fill-current" />
-          I'm finished
-        </Button>
-      </div>
-    );
-  }
-
-  if (phase === "review") {
-    return (
-      <div className="space-y-6">
-        <div>
-          <p className="text-sm font-bold tracking-[0.18em] text-moss uppercase">
-            Your words
-          </p>
-          <h2 className="mt-1 font-serif text-3xl text-ink">Did I hear you right?</h2>
-          <p className="mt-2 text-lg text-ink-soft">
-            Fix anything that looks wrong. Then we'll put it in the book.
-          </p>
-        </div>
-        <textarea
-          value={transcript}
-          onChange={(e) => setTranscript(e.target.value)}
-          rows={10}
-          className="w-full rounded-[22px] border border-rule bg-paper px-5 py-4 text-xl leading-relaxed outline-none focus:border-moss"
-          placeholder="Type or paste what you want in the book…"
-        />
-        <p className="text-base text-ink-faint">{wordCount(transcript)} words</p>
-        <fieldset className="space-y-3">
-          <legend className="text-lg font-bold text-ink">Where should this go?</legend>
-          <label className="flex items-start gap-3 text-lg">
-            <input
-              type="radio"
-              className="mt-1.5 size-5 accent-moss"
-              checked={destination === "append"}
-              onChange={() => setDestination("append")}
-            />
-            <span>
-              Add it to this chapter
-              {chapter ? ` (“${chapter.title}”)` : ""}
-            </span>
-          </label>
-          <label className="flex items-start gap-3 text-lg">
-            <input
-              type="radio"
-              className="mt-1.5 size-5 accent-moss"
-              checked={destination === "new"}
-              onChange={() => setDestination("new")}
-            />
-            <span>Start a new chapter with it</span>
-          </label>
-        </fieldset>
-        <div className="flex flex-col gap-3 sm:flex-row">
-          <Button size="xl" onClick={() => void writeIntoBook()}>
-            Write this into the book
-          </Button>
-          <Button size="xl" variant="secondary" onClick={() => void startTalking()}>
-            <Mic className="size-5" />
-            Talk again
-          </Button>
-          <Button size="xl" variant="quiet" onClick={onClose}>
-            Cancel
-          </Button>
-        </div>
-        {note ? <p className="text-ink-soft">{note}</p> : null}
-      </div>
-    );
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-sm font-bold tracking-[0.18em] text-moss uppercase">Talk</p>
-        <h2 className="mt-1 font-serif text-3xl text-ink">Tell the next part</h2>
-        <p className="mt-2 max-w-xl text-lg text-ink-soft">
-          Press the green button and speak. When you are done, press I'm
-          finished. You can also type, or bring in a recording you already have.
+    <div className="space-y-5" aria-busy={phase === "working" || phase === "preparing"}>
+      <p className="flex items-center gap-2 text-base font-bold text-moss">
+        <ShieldCheck className="size-5 shrink-0" /> Private dictation · voice stays on this computer
+      </p>
+      {audioWarning && (
+        <p role="alert" className="rounded-lg border border-rule bg-paper-deep p-4 text-lg">
+          {audioWarning}
         </p>
-      </div>
-      <Button size="xl" className="w-full sm:w-auto" onClick={() => void startTalking()}>
-        <Mic className="size-6" />
-        Start talking
-      </Button>
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <Button size="lg" variant="secondary" onClick={() => setPhase("review")}>
-          <Keyboard className="size-5" />
-          I'd rather type
-        </Button>
-        <Button
-          size="lg"
-          variant="secondary"
-          onClick={() => fileRef.current?.click()}
-        >
-          <Upload className="size-5" />
-          I have a recording
-        </Button>
-        <Button size="lg" variant="quiet" onClick={onClose}>
-          Not now
-        </Button>
-      </div>
+      )}
+      {error && (
+        <p role="alert" className="rounded-lg border border-rule bg-paper-deep p-4 text-lg">
+          {error}
+        </p>
+      )}
+      {phase === "preparing" || phase === "working" ? (
+        <div className="space-y-5 py-6">
+          <LoaderCircle className="size-8 animate-spin text-moss" />
+          <p role="status" className="font-serif text-2xl">
+            {message}
+          </p>
+          <p className="text-lg text-ink-soft">
+            Keep this page open. Longer recordings take more time on a laptop.
+          </p>
+          {!submitting.current && !finishing.current && !polishing.current && (
+            <Button variant="secondary" onClick={cancelWork}>
+              Cancel processing
+            </Button>
+          )}
+        </div>
+      ) : phase === "recording" ? (
+        <div className="space-y-5">
+          <h2 className="font-serif text-3xl">Recording your voice</h2>
+          <p className="text-2xl tabular-nums" role="timer">
+            {formatClock(seconds * 1000)}
+          </p>
+          <meter
+            aria-label="Microphone volume"
+            min={0}
+            max={100}
+            value={level}
+            className="h-6 w-full"
+          />
+          <p className="text-lg text-ink-soft">
+            Take your time. Your words will appear after you press I’m finished. Keep this page open
+            while recording.
+          </p>
+          <Button size="xl" variant="ink" onClick={() => void finishTalking()}>
+            <Square className="size-5 fill-current" />
+            I’m finished
+          </Button>
+        </div>
+      ) : phase === "review" ? (
+        <div className="space-y-5">
+          <h2 className="font-serif text-3xl">Your words, your way</h2>
+          <p className="text-lg text-ink-soft">
+            Read through this passage and correct any names or missed words. Earlier pages will stay
+            as you wrote them.
+          </p>
+          <label className="block space-y-2">
+            <span className="font-bold">Words to add to your book</span>
+            <textarea
+              autoFocus
+              aria-label="Words to add to your book"
+              value={transcript}
+              onChange={(e) => changeWords(e.target.value)}
+              rows={9}
+              className="w-full rounded-lg border border-rule bg-paper px-4 py-3 text-xl leading-relaxed"
+              placeholder="Type or paste your words here…"
+            />
+          </label>
+          <p className="text-base text-ink-soft">
+            {wordCount(transcript)} words · draft saved with your library when the save indicator is
+            ready
+          </p>
+          {hasAudio && (
+            <div className="flex flex-wrap gap-3">
+              <Button size="md" variant="secondary" onClick={() => void downloadRecording()}>
+                <Download className="size-4" />
+                Save recording
+              </Button>
+              <Button
+                size="md"
+                variant="quiet"
+                onClick={() => {
+                  if (
+                    !transcript ||
+                    window.confirm(
+                      "Replace the words in this draft with a fresh transcription of the recording?",
+                    )
+                  )
+                    void retryTranscription();
+                }}
+              >
+                Transcribe again
+              </Button>
+            </div>
+          )}
+          <fieldset className="space-y-3">
+            <legend className="mb-2 text-lg font-bold">Where should this go?</legend>
+            <label className="flex gap-3">
+              <input
+                type="radio"
+                name="destination"
+                checked={destination === "append"}
+                onChange={() => setDestination("append")}
+                className="size-5 accent-moss"
+              />
+              Add to “{state.chapters.find((c) => c.id === draft.current.chapterId)?.title}”
+            </label>
+            <label className="flex gap-3">
+              <input
+                type="radio"
+                name="destination"
+                checked={destination === "new"}
+                onChange={() => setDestination("new")}
+                className="size-5 accent-moss"
+              />
+              Start a new chapter
+            </label>
+          </fieldset>
+          <div className="flex flex-wrap gap-3">
+            <Button size="xl" disabled={!transcript.trim()} onClick={() => void writeIntoBook()}>
+              Write this into the book
+            </Button>
+            <Button variant="secondary" onClick={closeSafely}>
+              Keep draft for later
+            </Button>
+          </div>
+          <details className="border-t border-rule pt-4">
+            <summary className="cursor-pointer text-lg text-ink-soft">
+              Optional writing help & draft tools
+            </summary>
+            <div className="mt-4 space-y-4">
+              <p className="text-base text-ink-soft">
+                Online writing help sends only this passage and your voice notes as text to xAI. It
+                does not receive the recording. Private dictation does not need this.
+              </p>
+              <Button
+                size="md"
+                variant="secondary"
+                disabled={!transcript.trim()}
+                onClick={() => setConsentOpen(true)}
+              >
+                Review online writing help
+              </Button>
+              {beforePolish !== null && (
+                <Button
+                  size="md"
+                  variant="secondary"
+                  onClick={() => {
+                    changeWords(beforePolish);
+                    setBeforePolish(null);
+                  }}
+                >
+                  Restore my original wording
+                </Button>
+              )}
+              {consentOpen && (
+                <div className="space-y-3 rounded-lg border border-rule p-4">
+                  <p>
+                    This sends the passage above and your writing preferences to xAI for processing
+                    under its policies. Ghostwriter cannot promise how an outside service retains
+                    data. Continue only if you agree.
+                  </p>
+                  <a
+                    href="https://x.ai/legal/privacy-policy"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline"
+                  >
+                    Read xAI’s privacy policy
+                  </a>
+                  <div className="flex flex-wrap gap-3">
+                    <Button size="md" onClick={() => void polish()}>
+                      Send this text to xAI
+                    </Button>
+                    <Button size="md" variant="secondary" onClick={() => setConsentOpen(false)}>
+                      Keep it private
+                    </Button>
+                  </div>
+                </div>
+              )}
+              <div>
+                <Button
+                  size="md"
+                  variant="quiet"
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "Discard this unfinished passage? Your saved chapters will stay unchanged.",
+                      )
+                    ) {
+                      updateDraft(null);
+                      onClose();
+                    }
+                  }}
+                >
+                  Discard this draft
+                </Button>
+              </div>
+            </div>
+          </details>
+        </div>
+      ) : (
+        <div className="space-y-5">
+          <h2 className="font-serif text-3xl">Tell the next part</h2>
+          <p className="text-lg text-ink-soft">
+            Speak naturally. We’ll turn your recording into words right here on the laptop, then let
+            you review them.
+          </p>
+          <p className="rounded-lg border border-rule bg-paper-deep/50 p-4 text-base text-ink-soft">
+            The first use downloads speech files from Hugging Face. Downloads need internet; your
+            recording is processed on this computer and is not sent with them.
+          </p>
+          <Button size="xl" onClick={() => void startTalking()}>
+            <Mic className="size-6" />
+            Start private dictation
+          </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button variant="secondary" onClick={() => setPhase("review")}>
+              <Keyboard className="size-5" />
+              I’d rather type
+            </Button>
+            <Button variant="secondary" onClick={() => fileRef.current?.click()}>
+              <Upload className="size-5" />I have a recording
+            </Button>
+            <Button variant="quiet" onClick={onClose}>
+              Not now
+            </Button>
+          </div>
+        </div>
+      )}
       <input
         ref={fileRef}
         type="file"
-        accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm"
+        accept="audio/*,.mp3,.wav,.m4a,.ogg,.webm,.flac,.aac"
         className="hidden"
+        aria-label="Open an audio recording"
         onChange={(e) => {
           const file = e.target.files?.[0];
-          if (file) void onUpload(file);
           e.target.value = "";
+          if (file) void onUpload(file);
         }}
       />
-      {micError ? <p className="text-lg text-ink-soft">{micError}</p> : null}
     </div>
   );
 }
