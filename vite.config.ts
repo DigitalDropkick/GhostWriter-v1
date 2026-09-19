@@ -6,6 +6,8 @@ import tailwindcss from "@tailwindcss/vite";
 import { nitro } from "nitro/vite";
 // @ts-expect-error JS plugin alongside the TS vite config
 import { grokPwaPlugin } from "./scripts/grok-pwa-plugin.mjs";
+// @ts-expect-error JS build plugin alongside the TS vite config
+import { ghostwriterOfflinePlugin } from "./scripts/ghostwriter-offline-plugin.mjs";
 
 /**
  * Finish PGLite bootstrap during dev-server setup (before traffic). Vite awaits
@@ -162,6 +164,7 @@ export default defineConfig(({ command, isPreview }) => ({
   // Prepare the lazy speech worker dependency before recording can start.
   optimizeDeps: { include: ["@huggingface/transformers"] },
   plugins: [
+    ghostwriterOfflinePlugin(),
     speechPreviewMimePlugin(),
     pgliteBootstrapPlugin(),
     // Before tanstackStart so /auth/popup never falls through to the SPA.

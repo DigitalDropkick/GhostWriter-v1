@@ -414,3 +414,10 @@ test("vite plugin bakes og identity as a virtual module", () => {
   assert.match(plugin, /snapshotOgIdentity/);
 });
 
+
+test('custom app manifests and touch icons are preserved without duplicate platform links', () => {
+  const out = injectGrokPwaHead('<html><head><link rel="manifest" href="/ghostwriter.webmanifest"><link rel="apple-touch-icon" href="/ghostwriter-icons/icon-180.png"></head></html>');
+  assert.equal((out.match(/rel="manifest"/g) || []).length, 1);
+  assert.equal((out.match(/rel="apple-touch-icon"/g) || []).length, 1);
+  assert.match(out, /grok-app-builder\/extensions\.js/);
+});

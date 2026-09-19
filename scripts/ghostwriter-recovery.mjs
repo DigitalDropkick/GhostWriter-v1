@@ -44,7 +44,7 @@ async function seed(page, state) {
     db.close();
   }, state);
   await page.reload();
-  await page.getByText("Saved on this computer", { exact: true }).waitFor();
+  await page.getByText("Saved on this device", { exact: true }).waitFor();
 }
 async function stored(page) {
   return page.evaluate(async () => {
@@ -143,7 +143,7 @@ try {
     await page.getByRole("button", { name: "Close", exact: true }).click();
     await page.evaluate(() => { window.__failRestore = false; });
     await page.getByRole("button", { name: "Retry saving", exact: true }).click();
-    await page.getByText("Saved on this computer", { exact: true }).waitFor();
+    await page.getByText("Saved on this device", { exact: true }).waitFor();
     await page.reload();
     const saved = await stored(page);
     assert.equal(saved.state.books.length, 2);
@@ -178,7 +178,7 @@ try {
     await page.getByRole("dialog").locator("details").first().locator("summary").click();
     page.once("dialog", (dialog) => dialog.accept());
     await page.getByRole("button", { name: "Restore this page", exact: true }).first().click();
-    await page.getByText("Saved on this computer", { exact: true }).waitFor();
+    await page.getByText("Saved on this device", { exact: true }).waitFor();
     assert.ok((await stored(page)).state.revisions.some((revision) => revision.title === "My corrected title"));
   });
 

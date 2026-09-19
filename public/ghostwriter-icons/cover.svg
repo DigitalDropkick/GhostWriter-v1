@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#183e35"/>
+  <path d="M31 0v630M40 0v630" stroke="#d4b477" stroke-opacity=".35"/>
+  <rect x="65" y="35" width="1090" height="560" fill="none" stroke="#d4b477" stroke-opacity=".72"/>
+  <rect x="73" y="43" width="1074" height="544" fill="none" stroke="#d4b477" stroke-opacity=".25"/>
+  <path d="M93 93V65h28m969 28V65h-28M93 537v28h28m969-28v28h-28" fill="none" stroke="#d4b477" stroke-width="2"/>
+  <g transform="translate(540 102) scale(.25)">
+    <path d="M108 239c58-13 106 1 137 27v136c-36-26-82-36-137-24zm159 27c35-26 80-40 137-27v139c-54-12-101-2-137 24z" fill="#f6f0e5"/>
+    <path d="M370 103c-85 1-151 50-151 131 76 0 146-54 151-131Z" fill="#d4b477"/>
+    <path d="m201 269 108-115" fill="none" stroke="#183e35" stroke-width="30" stroke-linecap="round"/>
+    <path d="m201 269 108-115" fill="none" stroke="#d4b477" stroke-width="11" stroke-linecap="round"/>
+  </g>
+  <text x="610" y="340" text-anchor="middle" font-family="URW Bookman, Georgia, serif" font-size="110" font-weight="300" letter-spacing="-5" fill="#f6f0e5">Ghostwriter</text>
+  <text x="610" y="398" text-anchor="middle" font-family="Lato, Arial, sans-serif" font-size="27" letter-spacing=".3" fill="#f6f0e5">A place for the stories only you can tell.</text>
+  <path d="M481 447h102m54 0h102" stroke="#d4b477" stroke-opacity=".55"/>
+  <path d="m610 441 6 6-6 6-6-6z" fill="#d4b477"/>
+  <text x="610" y="506" text-anchor="middle" font-family="Lato, Arial, sans-serif" font-size="16" letter-spacing="3.5" fill="#d4b477">YOUR STORIES. YOUR VOICE.</text>
+</svg>

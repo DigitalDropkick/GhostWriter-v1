@@ -54,7 +54,7 @@ try {
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await page.getByRole("button", { name: /^Keep my words/ }).click();
   await page.getByRole("button", { name: "Open the writing room", exact: true }).click();
-  await page.getByText("Saved on this computer", { exact: true }).waitFor();
+  await page.getByText("Saved on this device", { exact: true }).waitFor();
   const bookId = await page.getByLabel("Your books", { exact: true }).inputValue();
   note("onboarding creates an author's book");
 
@@ -63,7 +63,7 @@ try {
   await page.getByRole("button", { name: "Type instead", exact: true }).click();
   await page.getByLabel("Words to add to your book", { exact: true }).fill(first);
   await page.getByRole("button", { name: "Keep draft for later", exact: true }).click();
-  await page.getByText("Saved on this computer", { exact: true }).waitFor();
+  await page.getByText("Saved on this device", { exact: true }).waitFor();
   await page.reload();
   await page.getByRole("button", { name: "Continue my draft", exact: true }).click();
   assert.equal(
@@ -71,7 +71,7 @@ try {
     first,
   );
   await page.getByRole("button", { name: "Write this into the book", exact: true }).click();
-  await page.getByText("Saved on this computer", { exact: true }).waitFor();
+  await page.getByText("Saved on this device", { exact: true }).waitFor();
   assert.ok((await page.locator("article").innerText()).includes("I learned to listen"));
   note("unfinished draft survives reload and is inserted exactly once");
 
@@ -170,12 +170,12 @@ try {
   note("desktop, 390px and 320px layouts fit; print shows the book only");
 
   // A second tab must fail safely rather than overwrite changes it never loaded.
-  await page.getByText("Saved on this computer", { exact: true }).waitFor();
+  await page.getByText("Saved on this device", { exact: true }).waitFor();
   const secondTab = await context.newPage();
   await secondTab.goto(base);
   await secondTab.getByRole("button", { name: "Edit the page myself", exact: true }).click();
   await secondTab.getByLabel("Chapter text", { exact: true }).fill("Saved from the second tab.");
-  await secondTab.getByText("Saved on this computer", { exact: true }).waitFor();
+  await secondTab.getByText("Saved on this device", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Edit the page myself", exact: true }).click();
   await page.getByLabel("Chapter text", { exact: true }).fill("Unsaved words from the older tab.");
   await page.getByText(/Another Ghostwriter tab saved changes/).waitFor();
@@ -293,10 +293,21 @@ try {
       await voicePage.getByLabel("Words to add to your book", { exact: true }).inputValue(),
       /fellow Americans/i,
     );
+    if (await voicePage.evaluate(() => !!navigator.serviceWorker?.controller)) {
+      await voicePage.getByText("Saved on this device", { exact: true }).waitFor();
+      await voicePage.reload();
+      await voicePage.getByRole("button", { name: "Continue my draft", exact: true }).click();
+      voicePage.once("dialog", (dialog) => dialog.accept());
+      await voicePage.getByRole("button", { name: "Transcribe again", exact: true }).click();
+      await voicePage.getByLabel("Words to add to your book", { exact: true }).waitFor();
+      assert.match(await voicePage.getByLabel("Words to add to your book", { exact: true }).inputValue(), /fellow Americans/i);
+      assert.equal(await voicePage.getByRole("alert").count(), 0);
+      note("offline reload restores the recording and restarts a real Whisper worker from cache");
+    }
     await context.setOffline(false);
     await voicePage.getByRole("button", { name: "Write this into the book", exact: true }).click();
     await voicePage.getByLabel("Words to add to your book", { exact: true }).waitFor({ state: "hidden" });
-    await voicePage.getByText("Saved on this computer", { exact: true }).waitFor();
+    await voicePage.getByText("Saved on this device", { exact: true }).waitFor();
     note("loaded speech engine transcribes with network disabled");
     await voicePage.close();
   }

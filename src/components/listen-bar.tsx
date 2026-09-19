@@ -41,7 +41,7 @@ export function ListenBar() {
     if (!chapter?.body.trim()) return;
     if (!("speechSynthesis" in window)) {
       setStatus(
-        "This browser has no installed reading voice. Try Microsoft Edge on the Windows laptop.",
+        "This browser has no installed reading voice. Try Safari on iPhone or Microsoft Edge on Windows.",
       );
       return;
     }
@@ -65,7 +65,7 @@ export function ListenBar() {
     if (!voice) {
       setPlaying(false);
       setStatus(
-        "No English voice installed for private reading. In Windows Settings, add an English speech voice, then reopen this page. No text was sent online.",
+        "No English voice installed for private reading. Add an English voice in your device’s speech/accessibility settings, then reopen this page. No text was sent online.",
       );
       return;
     }

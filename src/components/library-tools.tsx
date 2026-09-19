@@ -3,19 +3,30 @@ import { Button } from "./ui/button";
 import { useBook } from "@/lib/book-store";
 import { createBackup, parseBackup, prepareImport } from "@/lib/backup";
 import { downloadBlob } from "@/lib/utils";
-import { Download, FolderOpen } from "lucide-react";
+import { shareFile } from "@/lib/share-file";
+import { Download, FolderOpen, Share } from "lucide-react";
 
 export function LibraryTools() {
   const { state, pendingAudio, importLibrary } = useBook();
   const file = useRef<HTMLInputElement>(null);
+  const [prepared, setPrepared] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState<ReturnType<typeof parseBackup> | null>(null);
-  async function download(includeAudio = true) {
+  async function download(includeAudio = true, forSharing = false) {
     setBusy(true);
+    setPrepared(null);
     setMessage("Preparing your books and recordings…");
     try {
       const text = await createBackup(state, pendingAudio, includeAudio);
+      const filename = `Ghostwriter-${includeAudio ? "backup" : "text-only-backup"}-${new Date().toISOString().slice(0, 10)}.json`;
+      if (forSharing) {
+        setPrepared(new File([text], filename, { type: "application/json" }));
+        setMessage(
+          "Your backup is ready. Tap Save or share backup, then choose Save to Files. Keep this private file somewhere safe.",
+        );
+        return;
+      }
       downloadBlob(
         `Ghostwriter-${includeAudio ? "backup" : "text-only-backup"}-${new Date().toISOString().slice(0, 10)}.json`,
         new Blob([text], { type: "application/json" }),
@@ -52,6 +63,7 @@ export function LibraryTools() {
   async function restore() {
     if (!pending) return;
     setBusy(true);
+    setPrepared(null);
     setMessage("Restoring a separate copy of your books…");
     try {
       if (state.draft && pending.state.draft)
@@ -77,12 +89,12 @@ export function LibraryTools() {
   return (
     <div className="space-y-5">
       <p className="text-lg text-ink-soft">
-        Your library lives in this browser on this computer. A backup includes every book, original
+        Your library lives in this browser on this device. A backup includes every book, original
         transcript, saved recording, unfinished draft, and previous page version.
       </p>
       <p className="text-base text-ink-soft">
-        Download a backup after a writing session. Copy it to a USB drive for safekeeping. Signing
-        in does not create a cloud backup.
+        Download a backup after a writing session. Keep it in Files, on another device, or on a USB
+        drive. Signing in does not create a cloud backup.
       </p>
       <div className="flex flex-wrap gap-3">
         <Button disabled={busy} onClick={() => void download()}>
@@ -93,6 +105,34 @@ export function LibraryTools() {
           <FolderOpen className="size-5" />
           Restore a backup
         </Button>
+      </div>
+      <div className="space-y-3 border-t border-rule pt-4">
+        <Button disabled={busy} variant="secondary" onClick={() => void download(true, true)}>
+          <Share className="size-5" />
+          Prepare backup for Files
+        </Button>
+        {prepared && (
+          <Button
+            disabled={busy}
+            onClick={() => {
+              setBusy(true);
+              void shareFile(prepared)
+                .then((result) =>
+                  setMessage(
+                    result === "cancelled"
+                      ? "Sharing cancelled. Your prepared backup is still here."
+                      : result === "shared"
+                        ? "Backup handed to the share sheet. Check Files for your saved copy."
+                        : "Backup download started. Keep it somewhere safe.",
+                  ),
+                )
+                .catch((error) => setMessage(error.message))
+                .finally(() => setBusy(false));
+            }}
+          >
+            Save or share backup
+          </Button>
+        )}
       </div>
       <details className="text-base text-ink-soft">
         <summary className="cursor-pointer">Back up words without recordings</summary>

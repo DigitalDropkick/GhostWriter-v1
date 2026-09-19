@@ -1,21 +1,104 @@
-@import url("https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,600&display=swap");
 @import "tailwindcss";
 @import "tw-animate-css";
+
+/* Bundled SIL Open Font License typefaces remain available offline. */
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/fonts/atkinson-hyperlegible-bc8825fd43.woff2) format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/fonts/atkinson-hyperlegible-d64ba838ef.woff2) format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Atkinson Hyperlegible";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(/fonts/atkinson-hyperlegible-140e2bd25a.woff2) format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/fonts/source-serif-4-96e6393209.woff2) format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: italic;
+  font-weight: 600;
+  font-display: swap;
+  src: url(/fonts/source-serif-4-96e6393209.woff2) format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url(/fonts/source-serif-4-f2ea9c12d2.woff2) format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url(/fonts/source-serif-4-f2ea9c12d2.woff2) format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Source Serif 4";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url(/fonts/source-serif-4-f2ea9c12d2.woff2) format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 
 @theme {
   --font-sans: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
   --font-serif: "Source Serif 4", "Iowan Old Style", "Palatino Linotype", Palatino, serif;
 
-  --color-paper: #f3ede3;
+  --color-paper: #f6f0e5;
   --color-paper-deep: #e7ddce;
   --color-paper-dark: #d9ccb6;
   --color-ink: #2a241c;
   --color-ink-soft: #5e564c;
   --color-ink-faint: #6b6257;
   --color-rule: #cdbc9e;
-  --color-moss: #3f5c4a;
-  --color-moss-dark: #2f4638;
-  --color-moss-fg: #f3ede3;
+  --color-moss: #183e35;
+  --color-moss-dark: #102e27;
+  --color-moss-fg: #f6f0e5;
+  --color-brass: #d4b477;
+  --color-sheet: #fffcf5;
   --color-listen: #3d4a5c;
 
   --radius-sm: 8px;
@@ -88,7 +171,7 @@
 }
 
 .manuscript-sheet {
-  background: #faf6ee;
+  background: var(--color-sheet);
   box-shadow:
     0 1px 0 rgb(42 36 28 / 0.06),
     0 24px 48px -24px rgb(42 36 28 / 0.28);
@@ -351,19 +434,481 @@
 }
 
 /* Accessible controls, long book titles, and a writing-first phone layout. */
-:focus-visible { outline: 3px solid var(--color-moss); outline-offset: 3px; }
-button, a, summary { touch-action: manipulation; }
-button { white-space: normal; }
-article, main, aside { overflow-wrap: anywhere; }
-select { text-overflow: ellipsis; }
+:focus-visible {
+  outline: 3px solid var(--color-moss);
+  outline-offset: 3px;
+}
+button,
+a,
+summary {
+  touch-action: manipulation;
+}
+button {
+  white-space: normal;
+}
+article,
+main,
+aside {
+  overflow-wrap: anywhere;
+}
+select {
+  text-overflow: ellipsis;
+}
 @media (max-width: 1023px) {
-  aside { order: 2; }
-  main { order: 1; }
+  aside {
+    order: 2;
+  }
+  main {
+    order: 1;
+  }
 }
 @media (max-width: 639px) {
-  header > div > div { flex-wrap: wrap; }
-  button { max-width: 100%; }
+  button {
+    max-width: 100%;
+  }
 }
 @media print {
-  .print-prose { font-size: var(--page-size, 1.4rem); }
+  .print-prose {
+    font-size: var(--page-size, 1.4rem);
+  }
+}
+
+/* V3 — an heirloom writing room, sized for a hand-held screen. */
+.brand-mark {
+  width: 2.4rem;
+  height: 2.4rem;
+  flex-shrink: 0;
+  border-radius: 0.6rem;
+}
+.room-header {
+  padding-top: env(safe-area-inset-top);
+}
+.room-header > div {
+  padding-left: max(1rem, env(safe-area-inset-left));
+  padding-right: max(1rem, env(safe-area-inset-right));
+}
+.room-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--color-moss);
+}
+.page-tool {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
+.book-cover {
+  position: relative;
+  border-radius: 3px 10px 10px 3px;
+  padding: 1rem 1rem 1rem 1.45rem;
+  color: var(--color-paper);
+  background: var(--color-moss);
+  border-left: 6px solid var(--color-moss-dark);
+  box-shadow:
+    5px 5px 0 var(--color-paper-dark),
+    7px 7px 0 var(--color-rule),
+    0 18px 30px -14px rgb(24 62 53 / 40%);
+}
+.book-cover::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0.3rem;
+  border-left: 1px solid rgb(212 180 119 / 35%);
+}
+.cover-frame {
+  min-height: 17rem;
+  border: 1px solid var(--color-brass);
+  padding: 1.5rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  text-align: center;
+}
+.cover-edition,
+.cover-detail {
+  font-size: 0.65rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-brass);
+}
+.cover-feather {
+  width: 1.75rem;
+  height: 1.75rem;
+  color: var(--color-brass);
+}
+.cover-title {
+  font-family: var(--font-serif);
+  font-size: 2rem;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+.cover-author {
+  font-size: 0.95rem;
+}
+.cover-detail {
+  margin-top: auto;
+  padding-top: 1rem;
+  letter-spacing: 0.06em;
+}
+.story-console {
+  border-top: 4px solid var(--color-moss);
+  border-bottom: 1px solid var(--color-rule);
+  padding: 1.5rem 0;
+}
+.console-title {
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  line-height: 1.1;
+  margin: 0.65rem 0;
+}
+.console-chapter {
+  color: var(--color-ink-soft);
+  font-size: 1rem;
+}
+.writing-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+.talk-button {
+  flex: 1;
+  min-height: 6rem;
+  height: auto;
+  padding: 1rem 1.25rem;
+  justify-content: flex-start;
+  gap: 1rem;
+  text-align: left;
+  border-radius: 1.2rem;
+  box-shadow: 0 6px 0 var(--color-moss-dark);
+}
+.talk-medallion {
+  display: grid;
+  place-items: center;
+  width: 3.3rem;
+  height: 3.3rem;
+  border: 1px solid var(--color-brass);
+  color: var(--color-brass);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.talk-medallion svg {
+  width: 1.6rem;
+  height: 1.6rem;
+}
+.talk-hint {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 400;
+  margin-top: 0.2rem;
+}
+.type-button {
+  height: auto;
+}
+.console-listen {
+  margin-top: 1.5rem;
+}
+.console-listen button {
+  min-height: 2.8rem;
+  height: auto;
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+}
+.phone-header-tools,
+.phone-nav {
+  display: none;
+}
+.welcome-room {
+  max-width: 70rem;
+  margin: auto;
+  padding: max(1.5rem, env(safe-area-inset-top)) max(1.25rem, env(safe-area-inset-right))
+    max(2rem, env(safe-area-inset-bottom)) max(1.25rem, env(safe-area-inset-left));
+}
+.welcome-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-family: var(--font-serif);
+  font-size: 1.4rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--color-rule);
+}
+.edition-label {
+  margin-left: auto;
+  font-family: var(--font-sans);
+  font-size: 0.65rem;
+  letter-spacing: 0.2em;
+  color: var(--color-ink-soft);
+}
+.welcome-spread {
+  display: grid;
+  grid-template-columns: 1.3fr 0.8fr;
+  gap: 2.5rem 4rem;
+  padding-top: 3.5rem;
+}
+.welcome-copy {
+  align-self: center;
+}
+.welcome-copy h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(2.8rem, 5vw, 4.8rem);
+  line-height: 1.04;
+  margin: 1.25rem 0;
+  letter-spacing: -0.04em;
+}
+.welcome-copy h1 em {
+  color: var(--color-moss);
+  font-weight: 400;
+}
+.welcome-lead {
+  font-size: 1.2rem;
+  color: var(--color-ink-soft);
+  max-width: 30rem;
+}
+.welcome-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  margin-top: 1.7rem;
+  max-width: 23rem;
+}
+.welcome-reassurance {
+  margin-top: 1rem;
+  font-size: 0.9rem;
+  color: var(--color-ink-soft);
+}
+.welcome-book {
+  align-self: center;
+  max-width: 21rem;
+  width: 100%;
+  justify-self: center;
+  padding: 0.6rem;
+}
+.welcome-book .book-cover {
+  transform: rotate(3deg);
+}
+.welcome-book .cover-frame {
+  min-height: 25rem;
+  padding: 2rem;
+}
+.welcome-book .cover-title {
+  font-size: 2.6rem;
+}
+.welcome-book > p {
+  text-align: center;
+  font-family: var(--font-serif);
+  font-style: italic;
+  color: var(--color-ink-soft);
+  margin-top: 1.5rem;
+}
+.welcome-steps {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
+  padding: 1.75rem 0;
+  border-top: 1px solid var(--color-rule);
+  border-bottom: 1px solid var(--color-rule);
+}
+.welcome-steps li {
+  display: flex;
+  gap: 0.8rem;
+}
+.welcome-steps li > span {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 1.6rem;
+  color: var(--color-moss);
+}
+.welcome-steps strong {
+  font-family: var(--font-serif);
+  font-size: 1.15rem;
+}
+.welcome-steps p {
+  color: var(--color-ink-soft);
+  font-size: 0.9rem;
+  margin-top: 0.3rem;
+}
+.welcome-foot {
+  grid-column: 1 / -1;
+  color: var(--color-ink-soft);
+  font-size: 0.9rem;
+}
+.welcome-foot > div {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+.welcome-question {
+  max-width: 42rem;
+}
+.welcome-question > div {
+  margin-top: 2rem;
+}
+.setup-steps {
+  display: grid;
+  gap: 1.25rem;
+}
+.setup-steps li {
+  display: flex;
+  gap: 1rem;
+}
+.setup-steps svg {
+  flex-shrink: 0;
+  margin-top: 0.25rem;
+  color: var(--color-moss);
+}
+summary {
+  min-height: 2.75rem;
+  padding-block: 0.6rem;
+}
+@media (max-width: 1023px) {
+  .writing-shelf,
+  .desktop-tools,
+  .desktop-book-line {
+    display: none;
+  }
+  .phone-header-tools {
+    display: flex;
+    gap: 0.2rem;
+  }
+  .phone-header-tools button {
+    padding-inline: 0.7rem;
+  }
+  .writing-room {
+    padding-bottom: calc(5.5rem + env(safe-area-inset-bottom));
+  }
+  .phone-nav {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    position: fixed;
+    z-index: 30;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0.35rem max(0.75rem, env(safe-area-inset-right))
+      max(0.4rem, env(safe-area-inset-bottom)) max(0.75rem, env(safe-area-inset-left));
+    background: var(--color-paper);
+    border-top: 1px solid var(--color-rule);
+    box-shadow: 0 -5px 20px rgb(42 36 28 / 5%);
+  }
+  .phone-nav button {
+    display: flex;
+    align-items: center;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.25rem;
+    min-height: 3.4rem;
+    font-size: 0.85rem;
+    color: var(--color-ink-soft);
+    border-radius: 0.8rem;
+  }
+  .phone-nav button[aria-current] {
+    color: var(--color-moss);
+    background: var(--color-paper-deep);
+    font-weight: 700;
+  }
+  .phone-nav button:disabled {
+    opacity: 0.4;
+    cursor: default;
+  }
+  .phone-nav svg {
+    width: 1.3rem;
+    height: 1.3rem;
+  }
+  .welcome-spread {
+    gap: 2rem;
+  }
+  .welcome-book .cover-frame {
+    min-height: 21rem;
+    padding: 1.25rem;
+  }
+  .welcome-book .cover-title {
+    font-size: 2.2rem;
+  }
+  [data-sonner-toaster] {
+    bottom: calc(5.5rem + env(safe-area-inset-bottom)) !important;
+  }
+}
+@media (max-width: 639px) {
+  .welcome-spread {
+    grid-template-columns: minmax(0, 1fr);
+    padding-top: 2rem;
+  }
+  .edition-label {
+    display: none;
+  }
+  .welcome-copy h1 {
+    font-size: 3.1rem;
+  }
+  .welcome-actions {
+    max-width: none;
+  }
+  .welcome-book {
+    max-width: 15rem;
+  }
+  .welcome-book .cover-frame {
+    min-height: 16rem;
+  }
+  .welcome-steps {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+  }
+  .story-console {
+    padding-top: 1rem;
+  }
+  .writing-actions {
+    flex-direction: column;
+  }
+  .talk-button {
+    width: 100%;
+  }
+  .type-button {
+    min-height: 3rem;
+    padding: 0.7rem 1rem;
+  }
+  .console-listen > div > div {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  .manuscript-sheet {
+    padding: 1.5rem 1.1rem;
+    border-radius: 0.6rem;
+  }
+  .manuscript-sheet h1 {
+    font-size: 1.9rem;
+  }
+  .desk-grid {
+    padding-top: 1rem;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+@media (max-width: 359px) {
+  .room-header .brand-mark {
+    width: 2rem;
+    height: 2rem;
+  }
+  .room-header .font-serif {
+    font-size: 1.05rem;
+  }
+  .phone-header-tools button {
+    padding-inline: 0.55rem;
+  }
 }

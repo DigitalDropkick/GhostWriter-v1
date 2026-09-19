@@ -21,7 +21,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "test:browser": "node scripts/ghostwriter-browser.mjs",
-    "test:recovery": "node scripts/ghostwriter-recovery.mjs"
+    "test:recovery": "node scripts/ghostwriter-recovery.mjs",
+    "test:iphone": "node scripts/ghostwriter-iphone.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",

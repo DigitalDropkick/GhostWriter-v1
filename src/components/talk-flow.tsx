@@ -26,6 +26,7 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
   const [seconds, setSeconds] = useState(initial.durationMs / 1000);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [interruptionNotice, setInterruptionNotice] = useState("");
   const [audioWarning, setAudioWarning] = useState("");
   const [destination, setDestination] = useState<"append" | "new">("append");
   const [consentOpen, setConsentOpen] = useState(false);
@@ -51,6 +52,7 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
   const recordingWrites = useRef<Promise<void>>(Promise.resolve());
   const polishing = useRef(false);
   const savingRecording = useRef(false);
+  const interrupted = useRef(false);
   const finishRef = useRef<() => void>(() => {});
 
   function persist(patch: Partial<DictationDraft>) {
@@ -107,6 +109,45 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
     return () => window.clearInterval(id);
   }, [phase]);
 
+  useEffect(() => {
+    if (phase !== "recording") return;
+    let wakeLock: WakeLockSentinel | undefined;
+    let disposed = false;
+    // Keep the screen awake when supported; interruptions still need recovery.
+    void navigator.wakeLock
+      ?.request("screen")
+      .then((lock) => {
+        if (disposed) void lock.release().catch(() => {});
+        else wakeLock = lock;
+      })
+      .catch(() => {});
+    const pauseForInterruption = () => {
+      if (recorder.current?.state !== "recording") return;
+      interrupted.current = true;
+      finishRef.current();
+    };
+    const visibility = () => {
+      if (document.visibilityState === "hidden") pauseForInterruption();
+    };
+    document.addEventListener("visibilitychange", visibility);
+    window.addEventListener("pagehide", pauseForInterruption);
+    const tracks = stream.current?.getAudioTracks() ?? [];
+    tracks.forEach((track) => {
+      track.addEventListener("ended", pauseForInterruption);
+      track.addEventListener("mute", pauseForInterruption);
+    });
+    return () => {
+      disposed = true;
+      void wakeLock?.release().catch(() => {});
+      document.removeEventListener("visibilitychange", visibility);
+      window.removeEventListener("pagehide", pauseForInterruption);
+      tracks.forEach((track) => {
+        track.removeEventListener("ended", pauseForInterruption);
+        track.removeEventListener("mute", pauseForInterruption);
+      });
+    };
+  }, [phase]);
+
   function runWorker(type: "prepare" | "transcribe", samples?: Float32Array): Promise<string> {
     if (!worker.current)
       worker.current = new Worker(new URL("../workers/transcribe.worker.ts", import.meta.url), {
@@ -145,7 +186,8 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
     if (!mounted.current || token !== generation.current) return;
     setPhase("working");
     setError("");
-    setMessage("Opening your recording on this computer…");
+    setInterruptionNotice("");
+    setMessage("Opening your recording on this device…");
     try {
       const samples = await decodeRecording(blob);
       if (token !== generation.current) return;
@@ -168,13 +210,14 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
   async function startTalking() {
     if (phase === "preparing" || recorder.current?.state === "recording") return;
     const token = ++generation.current;
+    interrupted.current = false;
     setPhase("preparing");
     setError("");
     setMessage("Preparing private dictation. The first download may take a few minutes…");
     try {
       if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined")
         throw new Error(
-          "Microphone recording needs a secure page in Edge or Chrome. You can still type or open a recording.",
+          "Microphone recording needs a secure page in Safari, Edge, or Chrome. You can still type or open a recording.",
         );
       await runWorker("prepare");
       if (token !== generation.current) return;
@@ -232,7 +275,8 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
               });
           }
           if (
-            (totalBytes > MAX_RECORDING_BYTES * 0.9 || Date.now() - startedAt.current >= 55 * 60 * 1000) &&
+            (totalBytes > MAX_RECORDING_BYTES * 0.9 ||
+              Date.now() - startedAt.current >= 55 * 60 * 1000) &&
             rec.state === "recording"
           )
             finishRef.current();
@@ -298,7 +342,12 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
     await recordingWrites.current;
     await keepRecording(blob, durationMs);
     finishing.current = false;
-    await transcribe(blob);
+    if (interrupted.current) {
+      setInterruptionNotice(
+        "Recording stopped when this page was interrupted. Review the saved recording, then tap Transcribe again when you are ready.",
+      );
+      setPhase("review");
+    } else await transcribe(blob);
   }
   finishRef.current = () => {
     void finishTalking();
@@ -329,7 +378,7 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
   async function downloadRecording() {
     try {
       const blob = await getRecording();
-      if (!blob) throw new Error("The recording was not found on this computer.");
+      if (!blob) throw new Error("The recording was not found on this device.");
       downloadBlob(
         `My-recording.${blob.type.includes("mp4") ? "m4a" : blob.type.includes("wav") ? "wav" : blob.type.includes("mpeg") ? "mp3" : blob.type.includes("ogg") ? "ogg" : "webm"}`,
         blob,
@@ -368,7 +417,7 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
     }
     recordingId.current = null;
     setPhase("working");
-    setMessage("Saving your recording on this computer…");
+    setMessage("Saving your recording on this device…");
     await keepRecording(file, 0);
     await transcribe(file);
   }
@@ -441,8 +490,13 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
   return (
     <div className="space-y-5" aria-busy={phase === "working" || phase === "preparing"}>
       <p className="flex items-center gap-2 text-base font-bold text-moss">
-        <ShieldCheck className="size-5 shrink-0" /> Private dictation · voice stays on this computer
+        <ShieldCheck className="size-5 shrink-0" /> Private dictation · voice stays on this device
       </p>
+      {interruptionNotice && (
+        <p role="status" className="rounded-md border border-rule bg-paper-deep p-4">
+          {interruptionNotice}
+        </p>
+      )}
       {audioWarning && (
         <p role="alert" className="rounded-lg border border-rule bg-paper-deep p-4 text-lg">
           {audioWarning}
@@ -460,13 +514,16 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
             {message}
           </p>
           <p className="text-lg text-ink-soft">
-            Keep this page open. Longer recordings take more time on a laptop.
+            Keep this page open. Longer recordings take more time. Short passages work best on a phone.
           </p>
-          {!submitting.current && !finishing.current && !polishing.current && !savingRecording.current && (
-            <Button variant="secondary" onClick={cancelWork}>
-              Cancel processing
-            </Button>
-          )}
+          {!submitting.current &&
+            !finishing.current &&
+            !polishing.current &&
+            !savingRecording.current && (
+              <Button variant="secondary" onClick={cancelWork}>
+                Cancel processing
+              </Button>
+            )}
         </div>
       ) : phase === "recording" ? (
         <div className="space-y-5">
@@ -483,8 +540,9 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
           />
           <p className="text-lg text-ink-soft">
             Take your time. Your words will appear after you press I’m finished. Keep this page open
-            while recording. Long sessions stop and save at about 55 minutes; you can start another
-            passage afterward.
+            and your screen unlocked. Switching apps or an incoming call stops this passage for
+            recovery. Short passages work best on a phone. Long sessions stop and save at about 55
+            minutes; you can start another passage afterward.
           </p>
           <Button size="xl" variant="ink" onClick={() => void finishTalking()}>
             <Square className="size-5 fill-current" />
@@ -652,7 +710,7 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
           </p>
           <p className="rounded-lg border border-rule bg-paper-deep/50 p-4 text-base text-ink-soft">
             The first use downloads speech files from Hugging Face. Downloads need internet; your
-            recording is processed on this computer and is not sent with them.
+            recording is processed on this device and is not sent with them.
           </p>
           <Button size="xl" onClick={() => void startTalking()}>
             <Mic className="size-6" />

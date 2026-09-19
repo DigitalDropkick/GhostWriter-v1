@@ -11,15 +11,24 @@ import {
 } from "@/lib/types";
 import { Modal } from "./ui/modal";
 import { LibraryTools } from "./library-tools";
-import { Feather, Mic } from "lucide-react";
+import { BookCover } from "./book-cover";
+import { PhoneSetup } from "./phone-setup";
+import { Feather, Mic, Smartphone } from "lucide-react";
 
 const KINDS: BookKind[] = ["memoir", "family", "novel", "other"];
 const POLISH: PolishLevel[] = ["faithful", "light", "literary"];
 
-export function WelcomeFlow({ onEnterDesk }: { onEnterDesk: () => void }) {
+export function WelcomeFlow({
+  onEnterDesk,
+  offlineStatus,
+}: {
+  onEnterDesk: () => void;
+  offlineStatus: string;
+}) {
   const { createBook, setCurrent, state } = useBook();
   const [step, setStep] = useState(0);
   const [backupsOpen, setBackupsOpen] = useState(false);
+  const [phoneOpen, setPhoneOpen] = useState(false);
   const [author, setAuthor] = useState("");
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<BookKind>("memoir");
@@ -39,75 +48,100 @@ export function WelcomeFlow({ onEnterDesk }: { onEnterDesk: () => void }) {
   }
 
   return (
-    <div className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col justify-start px-5 py-10 sm:px-8 sm:py-14">
-      {backupsOpen && <Modal title="Restore your books" onClose={() => setBackupsOpen(false)}><LibraryTools /></Modal>}
+    <div className={`welcome-room ${step === 0 ? "welcome-intro" : "welcome-question"}`}>
+      <header className="welcome-brand">
+        <img src="/favicon.svg" alt="" className="brand-mark" />
+        <span>Ghostwriter</span>
+        <span className="edition-label">THE WRITING ROOM</span>
+      </header>
+      {phoneOpen && (
+        <Modal title="Ghostwriter on your iPhone" onClose={() => setPhoneOpen(false)}>
+          <PhoneSetup offlineStatus={offlineStatus} />
+        </Modal>
+      )}
+      {backupsOpen && (
+        <Modal title="Restore your books" onClose={() => setBackupsOpen(false)}>
+          <LibraryTools />
+        </Modal>
+      )}
       {step === 0 ? (
-        <div className="space-y-10">
-          <div className="space-y-4">
-            <p className="text-sm font-bold tracking-[0.22em] text-moss uppercase">
-              Ghostwriter
-            </p>
-            <h1 className="font-serif text-4xl leading-tight text-ink sm:text-5xl">
-              Speak your story.
+        <div className="welcome-spread">
+          <div className="welcome-copy">
+            <p className="room-eyebrow">A place for the stories only you can tell</p>
+            <h1>
+              Your stories.
               <br />
-              We'll set it on the page in your voice.
+              <em>In your words.</em>
             </h1>
-            <p className="max-w-xl text-xl leading-relaxed text-ink-soft">
-              Talk the way you talk. We listen, write it down, turn it into a
-              book you can read, hear, and print — without you having to type.
+            <p className="welcome-lead">
+              A memory, a chapter, a whole book. Just talk, and watch your words find their way onto
+              the page.
             </p>
+            <div className="welcome-actions">
+              <Button size="xl" onClick={() => setStep(1)}>
+                <Feather className="size-5" />
+                Start my book
+              </Button>
+              {sample && (
+                <Button
+                  size="lg"
+                  variant="secondary"
+                  onClick={() => {
+                    setCurrent(sample.id);
+                    onEnterDesk();
+                  }}
+                >
+                  Look at a sample first
+                </Button>
+              )}
+            </div>
+            <p className="welcome-reassurance">No blank-page pressure. No need to type.</p>
           </div>
-          <ol className="space-y-4 text-lg text-ink-soft">
-            <li className="flex gap-4">
-              <span className="mt-1 grid size-9 shrink-0 place-items-center rounded-full bg-moss text-sm font-bold text-moss-fg">
-                1
-              </span>
-              <span>
-                Press <strong className="text-ink">Talk</strong> and tell a memory.
-              </span>
+          <div className="welcome-book">
+            <BookCover title="Every life holds a library." detail="Yours begins here" />
+            <p>Your voice. Your pages. Your book.</p>
+          </div>
+          <ol className="welcome-steps">
+            <li>
+              <span>01</span>
+              <div>
+                <strong>Tell it.</strong>
+                <p>Press Talk. Start with a memory.</p>
+              </div>
             </li>
-            <li className="flex gap-4">
-              <span className="mt-1 grid size-9 shrink-0 place-items-center rounded-full bg-moss text-sm font-bold text-moss-fg">
-                2
-              </span>
-              <span>We put it on the page, sounding like you.</span>
+            <li>
+              <span>02</span>
+              <div>
+                <strong>Make it yours.</strong>
+                <p>Read your words. Change anything.</p>
+              </div>
             </li>
-            <li className="flex gap-4">
-              <span className="mt-1 grid size-9 shrink-0 place-items-center rounded-full bg-moss text-sm font-bold text-moss-fg">
-                3
-              </span>
-              <span>Read it, listen to it, or print it whenever you like.</span>
+            <li>
+              <span>03</span>
+              <div>
+                <strong>Keep it forever.</strong>
+                <p>Save a copy, share it, or print your book.</p>
+              </div>
             </li>
           </ol>
-          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-            <Button size="xl" onClick={() => setStep(1)}>
-              <Feather className="size-5" />
-              Start my book
-            </Button>
-            {sample ? (
-              <Button
-                size="xl"
-                variant="secondary"
-                onClick={() => {
-                  setCurrent(sample.id);
-                  onEnterDesk();
-                }}
-              >
-                Look at a sample first
+          <footer className="welcome-foot">
+            <p>
+              Private dictation processes your voice on this device. Speech files download on first
+              use; recordings are not uploaded. Save regular backups to keep your stories safe.
+            </p>
+            <div>
+              <Button variant="quiet" size="md" onClick={() => setBackupsOpen(true)}>
+                Restore a backup
               </Button>
-            ) : null}
-          </div>
-          <Button variant="quiet" size="md" onClick={() => setBackupsOpen(true)}>Restore a backup</Button>
-          <p className="text-base text-ink-soft">
-            Private dictation processes your voice on this computer. Speech files download on first use; your recordings are not uploaded. Back up your books regularly.{" "}
-            <Link
-              to="/start"
-              className="text-moss underline-offset-4 hover:underline"
-            >
-              Print a one-page getting-started sheet
-            </Link>
-            .
-          </p>
+              <Button variant="quiet" size="md" onClick={() => setPhoneOpen(true)}>
+                <Smartphone className="size-4" />
+                Set up on iPhone
+              </Button>
+              <Link to="/start" className="page-tool text-moss underline">
+                Getting-started guide
+              </Link>
+            </div>
+          </footer>
         </div>
       ) : null}
 
@@ -184,12 +218,7 @@ export function WelcomeFlow({ onEnterDesk }: { onEnterDesk: () => void }) {
               />
             ))}
           </div>
-          <Nav
-            onBack={() => setStep(3)}
-            onNext={finish}
-            nextLabel="Open the writing room"
-            icon
-          />
+          <Nav onBack={() => setStep(3)} onNext={finish} nextLabel="Open the writing room" icon />
         </Question>
       ) : null}
     </div>
@@ -236,9 +265,7 @@ function Choice({
       onClick={onClick}
       aria-pressed={selected}
       className={`rounded-[20px] border px-5 py-4 text-left transition-colors ${
-        selected
-          ? "border-moss bg-paper-deep"
-          : "border-rule bg-paper hover:bg-paper-deep"
+        selected ? "border-moss bg-paper-deep" : "border-rule bg-paper hover:bg-paper-deep"
       }`}
     >
       <div className="text-xl font-bold text-ink">{title}</div>
