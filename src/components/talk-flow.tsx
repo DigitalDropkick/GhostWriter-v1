@@ -50,6 +50,7 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
   const recordingId = useRef<string | null>(null);
   const recordingWrites = useRef<Promise<void>>(Promise.resolve());
   const polishing = useRef(false);
+  const savingRecording = useRef(false);
   const finishRef = useRef<() => void>(() => {});
 
   function persist(patch: Partial<DictationDraft>) {
@@ -114,12 +115,16 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
     const w = worker.current;
     return new Promise((resolve, reject) => {
       rejectJob.current = reject;
-      w.onerror = () =>
+      w.onerror = () => {
+        rejectJob.current = null;
+        w.terminate();
+        worker.current = null;
         reject(
           new Error(
             "Private dictation could not start. Try again, or save your recording and contact Addam.",
           ),
         );
+      };
       w.onmessage = (event: MessageEvent<SpeechReply>) => {
         const reply = event.data;
         if (reply.type === "progress") setMessage(reply.message);
@@ -136,8 +141,8 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
     });
   }
 
-  async function transcribe(blob: Blob) {
-    const token = ++generation.current;
+  async function transcribe(blob: Blob, token = ++generation.current) {
+    if (!mounted.current || token !== generation.current) return;
     setPhase("working");
     setError("");
     setMessage("Opening your recording on this computer…");
@@ -226,7 +231,10 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
                   );
               });
           }
-          if (totalBytes > MAX_RECORDING_BYTES * 0.9 && rec.state === "recording")
+          if (
+            (totalBytes > MAX_RECORDING_BYTES * 0.9 || Date.now() - startedAt.current >= 55 * 60 * 1000) &&
+            rec.state === "recording"
+          )
             finishRef.current();
         };
         rec.onstop = () => {
@@ -297,6 +305,7 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
   };
 
   async function keepRecording(blob: Blob, durationMs: number) {
+    savingRecording.current = true;
     audio.current = blob;
     setHasAudio(true);
     const audioId = recordingId.current ?? uid("aud");
@@ -309,6 +318,8 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
       setAudioWarning(
         "This recording is only in this open page. Download the recording before closing; browser storage could not save it.",
       );
+    } finally {
+      savingRecording.current = false;
     }
   }
 
@@ -328,12 +339,22 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
     }
   }
   async function retryTranscription() {
+    const token = ++generation.current;
+    setPhase("working");
+    setMessage("Opening your saved recording…");
     try {
       const blob = await getRecording();
-      if (blob) await transcribe(blob);
-      else setError("Recording not found. You can still type your words below.");
+      if (!mounted.current || token !== generation.current) return;
+      if (blob) await transcribe(blob, token);
+      else {
+        setError("Recording not found. You can still type your words below.");
+        setPhase("review");
+      }
     } catch {
-      setError("Could not open the saved recording.");
+      if (mounted.current && token === generation.current) {
+        setError("Could not open the saved recording.");
+        setPhase("review");
+      }
     }
   }
   async function onUpload(file: File) {
@@ -387,8 +408,8 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
     setConsentOpen(false);
     setPhase("working");
     setMessage("Asking for help with this passage…");
-    const original = draft.current.originalTranscript ?? transcript;
-    persist({ originalTranscript: original });
+    const original = transcript;
+    persist({ originalTranscript: draft.current.originalTranscript ?? original });
     try {
       const result = await shapeDictation({
         data: {
@@ -441,7 +462,7 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
           <p className="text-lg text-ink-soft">
             Keep this page open. Longer recordings take more time on a laptop.
           </p>
-          {!submitting.current && !finishing.current && !polishing.current && (
+          {!submitting.current && !finishing.current && !polishing.current && !savingRecording.current && (
             <Button variant="secondary" onClick={cancelWork}>
               Cancel processing
             </Button>
@@ -462,7 +483,8 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
           />
           <p className="text-lg text-ink-soft">
             Take your time. Your words will appear after you press I’m finished. Keep this page open
-            while recording.
+            while recording. Long sessions stop and save at about 55 minutes; you can start another
+            passage afterward.
           </p>
           <Button size="xl" variant="ink" onClick={() => void finishTalking()}>
             <Square className="size-5 fill-current" />

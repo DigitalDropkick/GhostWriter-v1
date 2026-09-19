@@ -17,7 +17,7 @@ import type {
   PolishLevel,
   Settings,
 } from "./types";
-import { emptyState, loadState, saveState } from "./storage";
+import { emptyState, loadState, saveState, type AudioEntry } from "./storage";
 import { uid } from "./utils";
 
 type NewBook = {
@@ -34,6 +34,7 @@ type BookContextValue = {
   saveError: string | null;
   saveStatus: SaveStatus;
   state: PersistedState;
+  pendingAudio: AudioEntry[];
   book: Book | null;
   chapter: Chapter | null;
   chapters: Chapter[];
@@ -48,7 +49,7 @@ type BookContextValue = {
   commitDraft: (destination: "append" | "new") => Promise<void>;
   checkpointChapter: (id: string) => void;
   restoreRevision: (id: string) => void;
-  importLibrary: (library: PersistedState) => Promise<void>;
+  importLibrary: (imported: { state: PersistedState; audio: AudioEntry[] }) => Promise<void>;
   flushSave: () => Promise<void>;
 };
 const BookContext = createContext<BookContextValue | null>(null);
@@ -64,6 +65,7 @@ export function BookProvider({ children }: { children: ReactNode }) {
   const revision = useRef(0);
   const writable = useRef(false);
   const pending = useRef<Promise<void> | null>(null);
+  const pendingAudio = useRef(new Map<string, Blob>());
 
   useEffect(() => {
     let cancelled = false;
@@ -97,7 +99,11 @@ export function BookProvider({ children }: { children: ReactNode }) {
     pending.current = (async () => {
       while (current.current !== persisted.current) {
         const snapshot = current.current;
-        revision.current = await saveState(snapshot, revision.current);
+        const recordings = Array.from(pendingAudio.current, ([id, blob]) => ({ id, blob }));
+        revision.current = await saveState(snapshot, revision.current, recordings);
+        for (const { id, blob } of recordings) {
+          if (pendingAudio.current.get(id) === blob) pendingAudio.current.delete(id);
+        }
         persisted.current = snapshot;
       }
       setSaveStatus("saved");
@@ -243,7 +249,8 @@ export function BookProvider({ children }: { children: ReactNode }) {
         const c = prev.chapters.find((c) => c.id === id);
         if (!c) return prev;
         const revisions = prev.revisions ?? [];
-        if (revisions.find((r) => r.chapterId === id)?.body === c.body) return prev;
+        const latest = revisions.find((r) => r.chapterId === id);
+        if (latest?.body === c.body && latest.title === c.title) return prev;
         return {
           ...prev,
           revisions: [
@@ -333,7 +340,10 @@ export function BookProvider({ children }: { children: ReactNode }) {
   );
 
   const importLibrary = useCallback(
-    async (library: PersistedState) => {
+    async ({ state: library, audio }: { state: PersistedState; audio: AudioEntry[] }) => {
+      if (current.current.draft && library.draft)
+        throw new Error("Keep or finish your current draft before restoring another unfinished draft.");
+      for (const { id, blob } of audio) pendingAudio.current.set(id, blob);
       // Importer remaps every id; existing books are never overwritten.
       mutate((prev) => ({
         ...prev,
@@ -367,6 +377,7 @@ export function BookProvider({ children }: { children: ReactNode }) {
     <BookContext.Provider
       value={{
         state,
+        pendingAudio: Array.from(pendingAudio.current, ([id, blob]) => ({ id, blob })),
         ready,
         loadError,
         saveError,

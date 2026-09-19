@@ -24,6 +24,10 @@ Technical references: [Transformers.js model usage](https://huggingface.co/Xenov
 5. Use **Page history** to recover earlier pages or read original passages. Up to 20 previous versions per chapter are kept before dictation, editing sessions, or restoration. This is not per-keystroke undo.
 6. Choose **Backups → Download backup** after writing. Backups include all books, transcripts, recordings, the unfinished draft, and page history. Restore imports separate copies and never replaces existing books. Keep a copy on a USB drive. **Save a text copy** also exports the current book for other word processors.
 
+If a recording is missing or the full backup is too large, use **Backups → Back up words without recordings → Save text-only backup**. This preserves every book, original transcript, draft, and page-history entry in a restorable file, with audio explicitly left out. A failed restore keeps its incoming recordings in memory for backup and retry; wait for **Saved on this computer** before closing the page.
+
+Long microphone sessions stop and save at about 55 minutes, before the transcription engine's one-hour limit. Short passages are easier to review and faster to process.
+
 Use the same website address, browser, and browser profile each time. Private/InPrivate windows and clearing browser data can remove local work. A changed domain or browser has a different library; transfer it with a backup. For very large libraries, ask Addam for help before clearing anything (browser restore is limited to 250 MB).
 
 ## Development
@@ -43,11 +47,12 @@ npm run lint
 npm test
 npm run test:browser -- http://127.0.0.1:4317
 npm run test:browser -- http://127.0.0.1:4317 --speech
+npm run test:recovery -- http://127.0.0.1:4317
 npm run build
 npm run preview
 ```
 
-The browser suite uses Playwright Chromium, or `/usr/bin/google-chrome` if Playwright's browser is absent. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` for another installed Chrome/Edge executable. `--speech` downloads the public JFK sample from the Transformers.js documentation, exercises the real browser worker, repeats inference with networking disabled, and asserts that private writing sends no upload requests. The core suite injects slow/unavailable/full storage and tab conflicts; those are controlled failure tests, not a real hardware-failure demonstration. Screenshots and results go under `screenshots/qa-review/` (ignored by Git).
+The browser suites use Playwright Chromium, or `/usr/bin/google-chrome` if Playwright's browser is absent. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` for another installed Chrome/Edge executable. `--speech` downloads the public JFK sample from the Transformers.js documentation, exercises the real browser worker, repeats inference with networking disabled, and asserts that private writing sends no upload requests. The core suite injects slow/unavailable/full storage and tab conflicts. The recovery suite covers cancellation, atomic restore and retry, text-only backups, title history, worker failure, recording duration, exports, printing, and local-voice chunking. These use synthetic content and controlled failures, not real hardware-failure demonstrations. Evidence goes under `screenshots/qa-review/` and `screenshots/qa-recovery/` (ignored by Git).
 
 `npm run build` also runs the existing database migration command. **Do not supply a production `DATABASE_URL` during local validation.** With no database URL, that step skips remote migrations. Auth uses the template's local PGLite fallback.
 
@@ -55,10 +60,10 @@ Generated `.vercel/output` is no longer versioned. Build it from the source and 
 
 ## Release and rollback
 
-This branch is a local review candidate. No production deployment or GitHub push is part of this work. See `REVIEW.md` for findings and validation evidence.
+The recovered privacy/recovery work is preserved on GitHub as tag **`v2`**, commit `002002b8be8922b4baa35d141dc4fbb630d034a0`. The subsequent audit improvements are described in **`V2-AUDIT.md`**; `REVIEW.md` records the earlier review. GitHub publication is separate from deployment. Real Windows-device checks remain required.
 
 Before switching an existing installation, download its books as text, preserve its browser profile, and take an IndexedDB/browser-data backup with Addam's assistance. The old app does not have the new full-library backup button. Keep the same origin and browser profile: the database name, version, stores, and legacy state key are unchanged, and valid old libraries load in place.
 
-After upgrading, make a full Ghostwriter backup before substantial writing. To roll back application code, switch to the original commit `d7a1faa34bed1bcde1bc361ab073d2fd96d650ee`, install its lockfile, and rebuild. Do not clear browser storage. Rolling back restores the original cloud-audio behavior and old save bugs; it is not a privacy-preserving alternative. Export newer drafts/history first because the old UI cannot access them.
+After upgrading, make a full Ghostwriter backup before substantial writing. To inspect the pre-audit v2 checkpoint without moving `main`, use `git switch -c rollback/v2 v2`, install its lockfile, and rebuild. Preserve browser storage and back up first. That checkpoint has the recovery defects documented in `V2-AUDIT.md`; return to `main` for the fixes. The much older original commit `d7a1faa34bed1bcde1bc361ab073d2fd96d650ee` also restores cloud-audio behavior and the original save bugs, so it is not the recommended rollback target.
 
 Remaining real-device checks: Windows Edge/Chrome microphone permission, microphone quality, recognition accuracy for the author's own voice, installed English reading voices, and print output on his printer. The small local model can mishear names and accents; review remains essential. No grandfather/customer recording is used in automated tests.

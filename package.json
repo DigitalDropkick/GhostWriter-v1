@@ -4,7 +4,11 @@
   "sideEffects": false,
   "type": "module",
   "overrides": {
-    "nf3": "0.3.17"
+    "nf3": "0.3.17",
+    "js-yaml": "4.3.2",
+    "@huggingface/transformers": {
+      "sharp": "0.35.4"
+    }
   },
   "scripts": {
     "dev": "vite dev --host 0.0.0.0 --port 8080",
@@ -16,7 +20,8 @@
     "test": "node --import tsx --test scripts/*.test.mjs tests/*.test.ts",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test:browser": "node scripts/ghostwriter-browser.mjs"
+    "test:browser": "node scripts/ghostwriter-browser.mjs",
+    "test:recovery": "node scripts/ghostwriter-recovery.mjs"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",

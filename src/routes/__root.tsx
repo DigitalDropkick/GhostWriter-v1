@@ -44,6 +44,13 @@ export const Route = createRootRoute({
               toastOptions={{
                 className:
                   "font-sans text-lg bg-paper text-ink border border-rule shadow-lg",
+                style: {
+                  fontFamily: "var(--font-sans)",
+                  fontSize: "1rem",
+                  background: "var(--color-paper)",
+                  color: "var(--color-ink)",
+                  borderColor: "var(--color-rule)",
+                },
               }}
             />
           </BookProvider>

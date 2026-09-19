@@ -1,5 +1,7 @@
 # Ghostwriter review — September 18, 2026
 
+Historical review of the work later published as tag `v2`. The publication state and follow-up fixes are documented in [V2-AUDIT.md](V2-AUDIT.md); statements below describe the original local review.
+
 Local review branch: `improve/writing-room-reliability`.
 Original commit: `d7a1faa34bed1bcde1bc361ab073d2fd96d650ee`.
 The checkout was clean before work. Nothing has been pushed or deployed.

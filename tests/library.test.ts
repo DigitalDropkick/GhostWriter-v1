@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { beforeEach, test } from "node:test";
-import { IDBFactory } from "fake-indexeddb";
+import { IDBFactory, IDBObjectStore } from "fake-indexeddb";
 import {
   emptyState,
   loadState,
@@ -10,7 +10,7 @@ import {
   SaveConflictError,
 } from "../src/lib/storage";
 import { parseState } from "../src/lib/state-schema";
-import { parseBackup, prepareImport } from "../src/lib/backup";
+import { createBackup, parseBackup, prepareImport } from "../src/lib/backup";
 import { splitForSpeech } from "../src/lib/local-speech";
 
 beforeEach(() => {
@@ -97,6 +97,14 @@ test("incomplete backups cannot silently drop recordings", () => {
     ),
   );
 });
+test("multi-megabyte recording backups validate without regexp stack overflow", () => {
+  const data = "A".repeat(8 * 1024 * 1024);
+  const backup = { format: "ghostwriter-backup", version: 1, createdAt: "today", state: emptyState(),
+    audio: [{ id: "large", type: "audio/webm", data }] };
+  assert.equal(parseBackup(JSON.stringify(backup)).audio[0].data.length, data.length);
+  for (const invalid of ["A", "AA=", "A===", "AAAA=AAA", "AA A", "!!!!"])
+    assert.throws(() => parseBackup(JSON.stringify({ ...backup, audio: [{ ...backup.audio[0], data: invalid }] })));
+});
 test("restoring a backup remaps all links and retains recording bytes", async () => {
   const state = emptyState();
   state.sessions = [
@@ -114,7 +122,7 @@ test("restoring a backup remaps all links and retains recording bytes", async ()
   state.revisions = [
     { id: "r", chapterId: state.chapters[0].id, body: "old", title: "Old page", createdAt: 1 },
   ];
-  const imported = await prepareImport(
+  const prepared = prepareImport(
     parseBackup(
       JSON.stringify({
         format: "ghostwriter-backup",
@@ -125,6 +133,9 @@ test("restoring a backup remaps all links and retains recording bytes", async ()
       }),
     ),
   );
+  const imported = prepared.state;
+  assert.equal(await loadAudio(imported.sessions[0].audioId!), null);
+  await saveState(imported, 0, prepared.audio);
   assert.notEqual(imported.books[0].id, state.books[0].id);
   assert.equal(imported.chapters[0].bookId, imported.books[0].id);
   assert.equal(imported.sessions[0].chapterId, imported.chapters[0].id);
@@ -136,6 +147,50 @@ test("restoring a backup remaps all links and retains recording bytes", async ()
     new Uint8Array([1, 2, 3, 4]),
   );
   assert.deepEqual(parseState(imported), imported);
+});
+test("failed restore rolls back every recording and the library together", async () => {
+  const original = emptyState();
+  await saveState(original, 0);
+  const put = IDBObjectStore.prototype.put;
+  IDBObjectStore.prototype.put = function (value: unknown, key?: IDBValidKey) {
+    if (key === "state") throw new DOMException("Disk full", "QuotaExceededError");
+    return put.call(this, value, key);
+  };
+  try {
+    await assert.rejects(saveState({ ...original, books: [] }, 1, [
+      { id: "import-one", blob: new Blob(["one"]) },
+      { id: "import-two", blob: new Blob(["two"]) },
+    ]));
+  } finally {
+    IDBObjectStore.prototype.put = put;
+  }
+  assert.deepEqual((await loadState()).state, original);
+  assert.equal((await loadState()).revision, 1);
+  assert.equal(await loadAudio("import-one"), null);
+  assert.equal(await loadAudio("import-two"), null);
+});
+test("a conflicting restore writes neither audio nor library", async () => {
+  const state = emptyState();
+  await saveState(state, 0);
+  await assert.rejects(saveState(state, 0, [{ id: "conflict-audio", blob: new Blob(["a"]) }]), SaveConflictError);
+  assert.equal(await loadAudio("conflict-audio"), null);
+});
+test("a text-only backup preserves all words without reading missing audio", async () => {
+  const state = emptyState();
+  state.draft = {
+    bookId: state.books[0].id, chapterId: state.chapters[0].id,
+    transcript: "Keep my corrected words.", originalTranscript: "Original words.",
+    audioId: "missing", durationMs: 1000,
+  };
+  state.revisions = [{ id: "r", chapterId: state.chapters[0].id, title: "Earlier", body: "Old words.", createdAt: 1 }];
+  await assert.rejects(createBackup(state), /recording is missing/);
+  const recovered = parseBackup(await createBackup(state, [], false));
+  assert.deepEqual(recovered.state.books, state.books);
+  assert.deepEqual(recovered.state.chapters, state.chapters);
+  assert.deepEqual(recovered.state.revisions, state.revisions);
+  assert.deepEqual(recovered.state.draft, { ...state.draft, audioId: null });
+  assert.deepEqual(recovered.audio, []);
+  assert.equal(state.draft.audioId, "missing");
 });
 test("private reading covers a long paragraph with no silent truncation", () => {
   const text = "A long classroom story. ".repeat(500).trim();

@@ -147,6 +147,8 @@ try {
   await page.screenshot({ path: `${output}/desk-desktop.png`, fullPage: true });
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
+    // Let the toaster's responsive transform finish before capturing it.
+    await page.waitForTimeout(450);
     assert.equal(
       await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1),
       false,

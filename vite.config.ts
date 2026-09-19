@@ -126,6 +126,27 @@ function authPopupPlugin(): Plugin {
 // `0.0.0.0:8080` is the live-preview contract — don't change host/port.
 // The dev server starts once `src/router.tsx` and `src/routes/` exist — see
 // AGENTS.md § "First scaffold".
+// Nitro's preview static server lacks a WASM MIME entry. Correct only generated
+// WASM assets so local preview exercises streaming compilation like Vercel.
+function speechPreviewMimePlugin(): Plugin {
+  return {
+    name: "ghostwriter:speech-preview-mime",
+    configurePreviewServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (/^\/assets\/[^/?]+\.wasm(?:\?|$)/.test(req.url ?? "")) {
+          const setHeader = res.setHeader;
+          res.setHeader = function (name, value) {
+            return setHeader.call(this, name,
+              name.toLowerCase() === "content-type" && value === "application/octet-stream"
+                ? "application/wasm" : value);
+          };
+        }
+        next();
+      });
+    },
+  };
+}
+
 export default defineConfig(({ command, isPreview }) => ({
   server: {
     host: "0.0.0.0",
@@ -141,6 +162,7 @@ export default defineConfig(({ command, isPreview }) => ({
   // Prepare the lazy speech worker dependency before recording can start.
   optimizeDeps: { include: ["@huggingface/transformers"] },
   plugins: [
+    speechPreviewMimePlugin(),
     pgliteBootstrapPlugin(),
     // Before tanstackStart so /auth/popup never falls through to the SPA.
     authPopupPlugin(),

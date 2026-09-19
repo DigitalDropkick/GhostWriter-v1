@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { parseState } from "./state-schema";
-import { loadAudio, saveAudio } from "./storage";
+import { loadAudio, type AudioEntry } from "./storage";
 import { uid } from "./utils";
 import type { PersistedState } from "./types";
 
@@ -13,12 +13,25 @@ const backupSchema = z.object({
     z.object({
       id: z.string().min(1),
       type: z.string(),
-      data: z.string().regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/),
+      // Repeated four-character capture groups exhaust the JS regexp stack for
+      // ordinary multi-megabyte recordings. Scan a character class instead.
+      data: z.string().refine((data) => data.length % 4 === 0 && /^[A-Za-z0-9+/]*={0,2}$/.test(data)),
     }),
   ),
 });
 
-export async function createBackup(state: PersistedState): Promise<string> {
+export async function createBackup(
+  state: PersistedState,
+  pendingAudio: AudioEntry[] = [],
+  includeAudio = true,
+): Promise<string> {
+  if (!includeAudio) {
+    state = {
+      ...state,
+      sessions: state.sessions.map((session) => ({ ...session, audioId: null })),
+      draft: state.draft ? { ...state.draft, audioId: null } : state.draft,
+    };
+  }
   const ids = new Set(
     [...state.sessions.map((s) => s.audioId), state.draft?.audioId].filter(
       (id): id is string => !!id,
@@ -26,10 +39,10 @@ export async function createBackup(state: PersistedState): Promise<string> {
   );
   const audio = [];
   for (const id of ids) {
-    const blob = await loadAudio(id);
+    const blob = pendingAudio.find((entry) => entry.id === id)?.blob ?? await loadAudio(id);
     if (!blob)
       throw new Error(
-        "A recording is missing. Save a text copy too, and contact Addam before clearing browser data.",
+        "A recording is missing. Save a text-only backup to protect all your words, and contact Addam before clearing browser data.",
       );
     const data = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
@@ -61,18 +74,18 @@ export function parseBackup(text: string) {
   return { ...backup, state };
 }
 
-export async function prepareImport(
+export function prepareImport(
   backup: ReturnType<typeof parseBackup>,
-): Promise<PersistedState> {
+): { state: PersistedState; audio: AudioEntry[] } {
   const s = backup.state;
   const bookIds = new Map(s.books.map((b) => [b.id, uid("book")]));
   const chapterIds = new Map(s.chapters.map((c) => [c.id, uid("ch")]));
   const audioIds = new Map(backup.audio.map((a) => [a.id, uid("aud")]));
-  for (const a of backup.audio) {
+  const audio = backup.audio.map((a) => {
     const bytes = Uint8Array.from(atob(a.data), (char) => char.charCodeAt(0));
-    await saveAudio(audioIds.get(a.id)!, new Blob([bytes], { type: a.type }));
-  }
-  return {
+    return { id: audioIds.get(a.id)!, blob: new Blob([bytes], { type: a.type }) };
+  });
+  const state: PersistedState = {
     ...s,
     books: s.books.map((b) => ({
       ...b,
@@ -108,4 +121,5 @@ export async function prepareImport(
     currentBookId: bookIds.get(s.currentBookId ?? "") ?? null,
     currentChapterId: chapterIds.get(s.currentChapterId ?? "") ?? null,
   };
+  return { state, audio };
 }

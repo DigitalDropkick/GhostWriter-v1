@@ -6,22 +6,24 @@ import { downloadBlob } from "@/lib/utils";
 import { Download, FolderOpen } from "lucide-react";
 
 export function LibraryTools() {
-  const { state, importLibrary } = useBook();
+  const { state, pendingAudio, importLibrary } = useBook();
   const file = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [pending, setPending] = useState<ReturnType<typeof parseBackup> | null>(null);
-  async function download() {
+  async function download(includeAudio = true) {
     setBusy(true);
     setMessage("Preparing your books and recordings…");
     try {
-      const text = await createBackup(state);
+      const text = await createBackup(state, pendingAudio, includeAudio);
       downloadBlob(
-        `Ghostwriter-backup-${new Date().toISOString().slice(0, 10)}.json`,
+        `Ghostwriter-${includeAudio ? "backup" : "text-only-backup"}-${new Date().toISOString().slice(0, 10)}.json`,
         new Blob([text], { type: "application/json" }),
       );
       setMessage(
-        "Backup download started. Keep this file somewhere safe, such as a USB drive. It contains your private books and recordings.",
+        includeAudio
+          ? "Backup download started. Keep this file somewhere safe, such as a USB drive. It contains your private books and recordings."
+          : "Text-only backup download started. It keeps every book, transcript, draft, and page history, but leaves out recordings.",
       );
     } catch (error) {
       setMessage(
@@ -56,8 +58,9 @@ export function LibraryTools() {
         throw new Error(
           "Finish or discard your current draft before restoring a backup that also has an unfinished draft.",
         );
-      await importLibrary(await prepareImport(pending));
+      const imported = prepareImport(pending);
       setPending(null);
+      await importLibrary(imported);
       setMessage(
         "Restored books are in the book selector with “(restored)” in the title. Your existing books are still there.",
       );
@@ -91,6 +94,16 @@ export function LibraryTools() {
           Restore a backup
         </Button>
       </div>
+      <details className="text-base text-ink-soft">
+        <summary className="cursor-pointer">Back up words without recordings</summary>
+        <p className="my-3">
+          If a recording is missing or your full backup is too large, save every book, transcript,
+          draft, and page history in a smaller backup. Audio is left out of this file.
+        </p>
+        <Button disabled={busy} variant="secondary" size="md" onClick={() => void download(false)}>
+          Save text-only backup
+        </Button>
+      </details>
       <input
         ref={file}
         type="file"

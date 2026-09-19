@@ -23,7 +23,7 @@ export function WelcomeFlow({ onEnterDesk }: { onEnterDesk: () => void }) {
   const [author, setAuthor] = useState("");
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<BookKind>("memoir");
-  const [polish, setPolish] = useState<PolishLevel>("light");
+  const [polish, setPolish] = useState<PolishLevel>("faithful");
 
   const sample = state.books.find((b) => b.isSample);
 
@@ -151,7 +151,7 @@ export function WelcomeFlow({ onEnterDesk }: { onEnterDesk: () => void }) {
         <Question
           kicker="Kind of book"
           title="What are you telling?"
-          hint="This only helps the writing. You can switch later."
+          hint="This describes your book. You can change it later."
         >
           <div className="grid gap-3">
             {KINDS.map((k) => (
@@ -169,9 +169,9 @@ export function WelcomeFlow({ onEnterDesk }: { onEnterDesk: () => void }) {
 
       {step === 4 ? (
         <Question
-          kicker="Your voice"
-          title="How should we treat your words?"
-          hint="You can try one way and change it on the next chapter."
+          kicker="Optional writing help"
+          title="If you ask for editing help, how much?"
+          hint="Private dictation keeps your words as you review them. These preferences apply only if you later agree to send a passage for online editing."
         >
           <div className="grid gap-3">
             {POLISH.map((p) => (

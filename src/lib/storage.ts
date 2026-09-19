@@ -66,10 +66,16 @@ export class SaveConflictError extends Error {
   }
 }
 
-export async function saveState(state: PersistedState, expectedRevision: number): Promise<number> {
+export type AudioEntry = { id: string; blob: Blob };
+
+export async function saveState(
+  state: PersistedState,
+  expectedRevision: number,
+  recordings: AudioEntry[] = [],
+): Promise<number> {
   const db = await openDb();
   try {
-    const tx = db.transaction("kv", "readwrite");
+    const tx = db.transaction(recordings.length ? ["kv", "audio"] : ["kv"], "readwrite");
     const done = txDone(tx);
     const store = tx.objectStore("kv");
     let conflict = false;
@@ -82,6 +88,7 @@ export async function saveState(state: PersistedState, expectedRevision: number)
         return;
       }
       try {
+        for (const { id, blob } of recordings) tx.objectStore("audio").add(blob, id);
         store.put(state, STATE_KEY);
         store.put(expectedRevision + 1, REVISION_KEY);
       } catch (error) {
