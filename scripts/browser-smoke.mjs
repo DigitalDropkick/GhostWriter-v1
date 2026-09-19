@@ -107,6 +107,14 @@ try {
     const resp = await page.goto(url, { waitUntil: "domcontentloaded", timeout: timeoutMs });
     const status = resp?.status() ?? 0;
     await page.waitForTimeout(1000);
+    // IndexedDB may finish after the initial render on a cold start. Capture
+    // the opened library (or its error), never a successful-looking loader.
+    await page.waitForFunction(
+      () => document.body.innerText.trim().length > 0 &&
+        !document.body.innerText.includes("Opening your books…"),
+      undefined,
+      { timeout: timeoutMs },
+    );
 
     const title = await page.title();
     const hasCanvas = (await page.locator("canvas").count()) > 0;
