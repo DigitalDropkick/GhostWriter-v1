@@ -1,6 +1,6 @@
-# Ghostwriter
+# Ghostwriter v3
 
-A quiet writing room for dictating, editing, reading, and printing books. V3 brings an iPhone Home Screen edition alongside the Windows writing room, with large controls, private dictation, offline reopening, and a book-inspired visual identity. See [V3-IPHONE.md](V3-IPHONE.md) for installation, test evidence, and the native iOS release path. This branch is a locally tested preview; no iPhone installation or App Store release has happened.
+A quiet writing room for dictating, editing, reading, and printing books. V3 brings an iPhone Home Screen edition alongside the Windows writing room, with large controls, private dictation, offline reopening, and a book-inspired visual identity. See [V3-IPHONE.md](V3-IPHONE.md) for installation, test evidence, and the native iOS release path. This is an **iPhone test release**: automated checks passed on a private HTTPS preview, while physical iPhone acceptance remains pending. It is not a signed native iOS or App Store release.
 
 ## Voice privacy
 
@@ -61,10 +61,10 @@ Generated `.vercel/output` is no longer versioned. Build it from the source and 
 
 ## Release and rollback
 
-The recovered privacy/recovery work is preserved on GitHub as tag **`v2`**, commit `002002b8be8922b4baa35d141dc4fbb630d034a0`. The subsequent audit improvements are described in **`V2-AUDIT.md`**; `REVIEW.md` records the earlier review. GitHub publication is separate from deployment. V3 work is isolated on `feature/v3-iphone`; the tested v2 main checkpoint is `33bb753`. Physical Windows and iPhone checks remain required.
+V3 is published on **`main`** and preserved under tag **[`v3`](https://github.com/DigitalDropkick/GhostWriter-v1/releases/tag/v3)** as an iPhone test release. The repository retains its original `GhostWriter-v1` name. The recovered privacy/recovery work remains preserved under tag **`v2`**, commit `002002b8be8922b4baa35d141dc4fbb630d034a0`; the later tested v2 checkpoint is `33bb753`. **`V2-AUDIT.md`** describes those follow-up fixes, and `REVIEW.md` records the earlier review. GitHub publication and the private test preview do not establish public production readiness. Physical Windows and iPhone checks remain required.
 
 Before switching an existing installation, download its books as text, preserve its browser profile, and take an IndexedDB/browser-data backup with Addam's assistance. The old app does not have the new full-library backup button. Keep the same origin and browser profile: the database name, version, stores, and legacy state key are unchanged, and valid old libraries load in place.
 
-After upgrading, make a full Ghostwriter backup before substantial writing. To inspect the pre-audit v2 checkpoint without moving `main`, use `git switch -c rollback/v2 v2`, install its lockfile, and rebuild. Preserve browser storage and back up first. That checkpoint has the recovery defects documented in `V2-AUDIT.md`; return to `main` for the fixes. The much older original commit `d7a1faa34bed1bcde1bc361ab073d2fd96d650ee` also restores cloud-audio behavior and the original save bugs, so it is not the recommended rollback target.
+After upgrading, make a full Ghostwriter backup before substantial writing. To inspect the last tested v2 checkpoint without moving `main` or disturbing v3, use `git worktree add ../GhostWriter-v2-review 33bb753`, then install its lockfile and build in that separate checkout. Preserve browser storage and back up first. The earlier `v2` tag predates the recovery fixes in `V2-AUDIT.md`; the much older original commit `d7a1faa34bed1bcde1bc361ab073d2fd96d650ee` also restores cloud-audio behavior and the original save bugs. For an installed v3 app, follow the service-worker rollback guidance in `V3-IPHONE.md` before changing deployed source.
 
 Remaining real-device checks: Windows Edge/Chrome microphone permission, microphone quality, recognition accuracy for the author's own voice, installed English reading voices, and print output on his printer. The small local model can mishear names and accents; review remains essential. No grandfather/customer recording is used in automated tests.

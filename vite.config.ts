@@ -128,19 +128,25 @@ function authPopupPlugin(): Plugin {
 // `0.0.0.0:8080` is the live-preview contract — don't change host/port.
 // The dev server starts once `src/router.tsx` and `src/routes/` exist — see
 // AGENTS.md § "First scaffold".
-// Nitro's preview static server lacks a WASM MIME entry. Correct only generated
-// WASM assets so local preview exercises streaming compilation like Vercel.
+// Nitro's preview static server lacks WASM and web manifest MIME entries.
+// Correct these responses for speech compilation and Home Screen installation.
 function speechPreviewMimePlugin(): Plugin {
   return {
     name: "ghostwriter:speech-preview-mime",
     configurePreviewServer(server) {
       server.middlewares.use((req, res, next) => {
-        if (/^\/assets\/[^/?]+\.wasm(?:\?|$)/.test(req.url ?? "")) {
+        const path = req.url ?? "";
+        const contentType = /^\/assets\/[^/?]+\.wasm(?:\?|$)/.test(path)
+          ? "application/wasm"
+          : /^\/ghostwriter\.webmanifest(?:\?|$)/.test(path)
+            ? "application/manifest+json"
+            : null;
+        if (contentType) {
           const setHeader = res.setHeader;
           res.setHeader = function (name, value) {
             return setHeader.call(this, name,
               name.toLowerCase() === "content-type" && value === "application/octet-stream"
-                ? "application/wasm" : value);
+                ? contentType : value);
           };
         }
         next();

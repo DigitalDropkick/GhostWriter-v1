@@ -1,6 +1,6 @@
 # Ghostwriter v3 — iPhone writing room
 
-This is a locally built and tested **Home Screen web app candidate**, on `feature/v3-iphone`. It is not a signed native iOS binary, TestFlight build, or App Store release. No deployment or phone installation was performed. Addam will obtain Papaw’s iPhone model and iOS version before the device trial. The completed v2 main checkpoint remains `33bb753` and the earlier `v2` tag remains unchanged.
+This **Home Screen web app candidate** is published on `main` and tagged `v3` as an iPhone test release. It is not a signed native iOS binary, TestFlight build, or App Store release. A private HTTPS preview has passed automated browser checks and is available for a physical iPhone trial; phone installation and acceptance results remain unverified. Papaw’s device details are still pending. The completed v2 checkpoint remains available at `33bb753`, and the earlier `v2` tag remains unchanged.
 
 ## What Papaw gets
 
@@ -57,11 +57,11 @@ TestFlight/App Store distribution requires the Apple Developer Program and signi
 
 The service worker caches anonymous `/` HTML and a static asset allowlist. It never intercepts API/auth/server-function requests, POSTs, or third-party traffic. Library and recordings remain in IndexedDB; Transformers.js owns its separate model cache. Updates wait for existing app windows to close instead of reloading an active draft. Activation removes only old `ghostwriter-app-*` caches. Public asset contents participate in the cache version, so icon/font changes invalidate it too.
 
-Production hosting must serve `/ghostwriter-sw.js` as JavaScript, allow its root scope and update checks, serve `/ghostwriter.webmanifest` as a manifest/JSON, serve `.wasm` as `application/wasm`, and preserve the HTTPS origin. Do not configure the service-worker script itself with immutable caching. A live deployment has not been validated.
+Production hosting must serve `/ghostwriter-sw.js` as JavaScript, allow its root scope and update checks, serve `/ghostwriter.webmanifest` as a manifest/JSON, serve `.wasm` as `application/wasm`, and preserve the HTTPS origin. Do not configure the service-worker script itself with immutable caching. These content types and normal TLS certificate validation passed on the private test preview; public production hosting remains unverified.
 
 ## Validation
 
-Commands and results from this workspace are recorded below; these are Chromium desktop/touch-emulation results, not physical iPhone proof.
+Commands and results from the September 18 local validation are recorded below; these are Chromium desktop/touch-emulation results, not physical iPhone proof.
 
 - `npm run typecheck`: passed.
 - `npm run lint`: no errors; one pre-existing unused-disable warning in `src/lib/auth/use-current-user.ts`.
@@ -74,10 +74,19 @@ Commands and results from this workspace are recorded below; these are Chromium 
 - Development and production desktop/mobile smoke checks: matching content, no overflow or browser errors; screenshots visually inspected.
 - Evidence: `screenshots/qa-review/`, `screenshots/qa-recovery/`, and `screenshots/qa-v3/` (synthetic content, ignored by Git).
 
-WebKit 26.5 was downloaded for testing, but could not launch because this Linux host lacks `libavif16`. No system packages or sudo changes were made. Physical Safari, microphone, iOS speech voices, share destinations, App Store signing, and deployment remain unverified.
+WebKit 26.5 was downloaded during that validation, but could not launch because this Linux host lacked `libavif16`. No system packages or sudo changes were made. Physical Safari, microphone, iOS speech voices, share destinations, App Store signing, and public production hosting remain unverified.
+
+### September 21 private HTTPS trial preparation
+
+- Created a separate preview behind Tailscale Serve, preserving the host's existing service and keeping public Funnel access disabled. Hostnames, device addresses, and operator commands remain in local trial notes rather than this public repository.
+- The exact HTTPS test endpoint passed 21 writing/speech checks, seven recovery scenarios, and seven phone-flow scenarios. This included actual Whisper transcription of a public sample, offline inference, fresh offline worker startup, backup/restore, and interruption recovery. No private uploads or uncaught page errors were observed.
+- Found and fixed the preview server's generic MIME type for `/ghostwriter.webmanifest` in `vite.config.ts`. The exact manifest path now returns `application/manifest+json`, preserving the existing generated-WASM correction.
+- After the fix, `npm run typecheck`, `npm test` (all five test files), and `env -u DATABASE_URL npm run build` passed. Lint had no errors and the same existing warning; remote database migrations were skipped.
+- Rebuilt and restarted only the test preview. Normal HTTPS verification, manifest/WASM content types, all seven phone-flow scenarios, and desktop/mobile smoke checks passed. Smoke content matched the earlier baseline with no overflow or browser errors.
+- Local evidence and scoped stop/rollback instructions are under `screenshots/qa-iphone-trial-20260921/`, ignored by Git. Physical iPhone acceptance remains pending.
 
 ## Rollback
 
-Before changing an existing installation, export and verify a full backup. This change does not migrate IndexedDB or change its schema. V2 main remains at `33bb753`; create a separate checkout with `git worktree add ../GhostWriter-v2-review 33bb753` to build/review it without discarding v3 work. Do not reset or remove the v3 branch to roll back.
+Before changing an existing installation, export and verify a full backup. This change does not migrate IndexedDB or change its schema. The last tested v2 checkpoint is `33bb753`; create a separate checkout with `git worktree add ../GhostWriter-v2-review 33bb753` to build/review it without discarding v3 work. Do not reset or remove the v3 branch to roll back.
 
 A deployed rollback also needs service-worker handling: after a backup, unregister this origin’s Ghostwriter worker using the browser’s developer tools, or ship a reviewed retirement worker at the same `/ghostwriter-sw.js` URL. Remove only `ghostwriter-app-*` caches if needed. **Do not clear IndexedDB, all site data, or the separate speech-model cache.** Merely deploying old source does not remove a previously installed worker. Deployment/retirement should be tested on a practice library before Papaw’s phone.
