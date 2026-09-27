@@ -1,64 +1,19 @@
-# Ghostwriter — Getting started
+# Your story, in your words
 
-**Keep this sheet by the computer.**
+The [one-page guide](public/getting-started.pdf) is also available under **Guide** in Ghostwriter. Keep a copy near your writing spot.
 
-You talk. It writes the story in your voice. You can read it, hear it, or print it. That is the whole program. Private dictation processes your voice on this computer. The first use downloads speech files; your recording is not uploaded. Download a backup after each writing session.
+1. Open the Ghostwriter address Addam gave you and sign in with your approved email. On Windows use Chrome or Edge; on iPhone use Safari. Keep using the same browser or installed app icon.
+2. Choose **Start my book**, add your name and title, then open the writing room. Your last book opens when you return.
+3. Choose **Talk → Start private dictation**, or **Type instead**. Allow the microphone when asked. The first speech download needs internet; recordings stay on your device. Keep Ghostwriter open while recording.
+4. Choose **I’m finished**, read and correct the words, then **Write this into the book**. Wait for **Saved on this device** before closing.
+5. Use **Keep draft for later** for unfinished work and **Continue my draft** to return to it. After an interruption, save the recording if available and retry turning it into words. Only audio already saved can be recovered.
+6. Use **Read**, **Listen to the page**, or **Print**. Listening needs an English voice installed on your device.
+7. Open **Backups** (**Keep safe** on a phone), download a backup or save it to Files, and check that the file is there. To restore, choose that file and **Restore these books**. It adds copies without replacing your current books.
 
----
+**Install Ghostwriter** gives the Windows and iPhone instructions. Open the new icon while online, wait for offline readiness and choose **Prepare offline dictation**. Try a short recording with internet turned off before relying on offline use.
 
-## The address of your book
+Books do not automatically sync. Use a backup to move between devices. Signing in does not make a cloud backup. Avoid private browsing. Clearing website data or deleting the app can remove its local books.
 
-Write it here (Addam will send this):
+If saving fails, keep the page open, download a backup of the latest words, and follow the warning. If a book seems missing, check the same device, website address, browser and Books list before changing anything.
 
-________________________________________________
-
-Open it in **Microsoft Edge** (the blue e) or **Google Chrome**. Pick one. Always use that same program — if you switch, it can look like an empty book even though yours is still there.
-
-Click the **star** at the top of the window so you never have to type the address again.
-
----
-
-## The laptop is home
-
-Sit at the **Windows computer**. That is where the book lives, where you write, and where you print.
-
-When Windows asks “Use your microphone?”, click **Allow**. You only have to do that once.
-
-## The iPhone is a pocket notebook
-
-Do **not** write the book on the phone.
-
-If a story arrives away from the desk:
-
-1. Open **Voice Memos** (the red waveform).
-2. Press the red circle. Talk. Press it again when you are done.
-3. Later, at the laptop: press **Talk**, then **I have a recording**, and choose that memo.
-
-Or just sit down at the laptop and tell it again. Stories keep.
-
----
-
-## How to write
-
-1. Open your bookmark.
-2. The first time, press **Start my book**. Put your name on the title page.
-3. Press **Talk → Start private dictation**. Let the speech files download the first time. Tell the story the way you would tell family.
-4. Press **I’m finished**. Read what it heard. Fix any word that looks wrong — that is normal.
-5. Press **Write this into the book**. It adds the passage without changing earlier pages.
-6. Use **Read**, **Listen to the page**, or **Print**. Then choose **Backups → Download backup** and keep the file on a USB drive.
-
----
-
-## If something looks wrong
-
-- **Wrong words** — fix them before you press Write this into the book.
-- **No microphone** — press Type instead, or use a Voice Memo from the phone.
-- **Can’t find the book** — same bookmark, same program (Edge or Chrome). Don’t use a private or “InPrivate” window.
-
-Anything else — call Addam at **(502) 427-9894**.
-
----
-
-*Digital Dropkick · Ghostwriter*
-
-A printable version lives in the app at `/start` (add `?url=https://…` to fill in the address).
+Digital Dropkick · (502) 427-9894

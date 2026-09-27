@@ -780,6 +780,7 @@ summary {
   .phone-header-tools {
     display: flex;
     gap: 0.2rem;
+    margin-left: auto;
   }
   .phone-header-tools button {
     padding-inline: 0.7rem;
@@ -911,4 +912,39 @@ summary {
   .phone-header-tools button {
     padding-inline: 0.55rem;
   }
+}
+
+/* v4: consistent dialogs and controls at narrow widths and larger text sizes. */
+.room-dialog {
+  top: max(1rem, env(safe-area-inset-top));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  left: max(0.75rem, env(safe-area-inset-left));
+  right: max(0.75rem, env(safe-area-inset-right));
+  width: auto;
+  height: fit-content;
+  max-height: calc(100dvh - max(1rem, env(safe-area-inset-top)) - max(1rem, env(safe-area-inset-bottom)));
+  max-width: 38rem;
+  margin: auto;
+  padding: clamp(16px, 4vw, 32px);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-lg);
+  overflow: auto;
+  overscroll-behavior: contain;
+  overflow-wrap: anywhere;
+}
+.dialog-heading > button { flex-shrink: 0; }
+.room-dialog button { max-width: 100%; }
+.room-dialog fieldset { min-width: 0; }
+.guide-link { display: inline-flex; align-items: center; min-height: 3rem; padding: 0.5rem 1.25rem; border: 1px solid var(--color-rule); border-radius: 14px; font-weight: 700; }
+.guide-link:hover { background: var(--color-paper-deep); }
+.room-dialog input[type="radio"] { flex-shrink: 0; margin-top: 0.25rem; }
+@media (max-width: 359px) {
+  .dialog-heading h2 { font-size: clamp(1.15rem, 8vw, 1.6rem); }
+  .room-dialog .flex-wrap > button { width: 100%; }
+  .welcome-copy h1 { font-size: clamp(2.4rem, 14vw, 3.1rem); }
+  .welcome-room { padding-inline: max(16px, env(safe-area-inset-left)); }
+  .welcome-brand { flex-wrap: wrap; font-size: 1.25rem; }
+  .welcome-brand .brand-mark { width: 32px; height: 32px; }
+  .welcome-book .book-cover { transform: none; padding: 16px 16px 16px 20px; }
+  .welcome-book .cover-frame { padding-inline: 12px; }
 }

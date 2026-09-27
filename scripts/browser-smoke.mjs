@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import { chromium } from "playwright";
 import { checkedOutputPath, checkedUrl } from "./browser-guard.mjs";
-import { computeBrandWarnings } from "./brand-check.mjs";
 import {
   baselineComparison,
   bodyTextPrefix,
@@ -145,8 +144,7 @@ try {
     };
   }
 
-  const brandWarnings = computeBrandWarnings({ hasCanvas: viewports.desktop.hasCanvas, workspaceRoot });
-  const verdict = { url, viewports, brandWarnings, verdictFile: outJson };
+  const verdict = { url, viewports, verdictFile: outJson };
   if (baselineRequested) {
     const { divergesFromBaseline, reasons } = compareAgainstBaseline(verdict);
     verdict.divergesFromBaseline = divergesFromBaseline;
@@ -155,7 +153,6 @@ try {
 
   writeFileSync(outJson, JSON.stringify(verdict, null, 2));
   console.log(JSON.stringify(verdict, null, 2));
-  for (const w of brandWarnings) console.error(w);
   // Set the code rather than aborting the process so the `finally` browser
   // teardown always runs (agents typically smoke twice per turn; leaking
   // Chromium accumulates across retries).

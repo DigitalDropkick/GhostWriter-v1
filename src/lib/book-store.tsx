@@ -1,3 +1,4 @@
+import { UserFacingError } from "./user-message";
 import {
   createContext,
   useCallback,
@@ -17,7 +18,7 @@ import type {
   PolishLevel,
   Settings,
 } from "./types";
-import { emptyState, loadState, saveState, type AudioEntry } from "./storage";
+import { emptyState, loadState, saveState, SaveConflictError, type AudioEntry } from "./storage";
 import { uid } from "./utils";
 
 type NewBook = {
@@ -111,9 +112,9 @@ export function BookProvider({ children }: { children: ReactNode }) {
       .catch((error) => {
         setSaveStatus("error");
         setSaveError(
-          error instanceof Error && error.name !== "QuotaExceededError"
+          error instanceof SaveConflictError
             ? error.message
-            : "This browser could not save your latest changes. Download a backup now, then free some storage and retry.",
+            : "Your latest changes are not saved on this device. Keep this page open and download a backup now. Free some device storage, then try saving again.",
         );
         throw error;
       })
@@ -342,7 +343,7 @@ export function BookProvider({ children }: { children: ReactNode }) {
   const importLibrary = useCallback(
     async ({ state: library, audio }: { state: PersistedState; audio: AudioEntry[] }) => {
       if (current.current.draft && library.draft)
-        throw new Error("Keep or finish your current draft before restoring another unfinished draft.");
+        throw new UserFacingError("Keep or finish your current draft before restoring another unfinished draft.");
       for (const { id, blob } of audio) pendingAudio.current.set(id, blob);
       // Importer remaps every id; existing books are never overwritten.
       mutate((prev) => ({

@@ -1,22 +1,23 @@
+import { UserFacingError } from "./user-message";
 export const LOCAL_MODEL = "Xenova/whisper-tiny.en";
 export const LOCAL_MODEL_REVISION = "79fb389fc764e7c395bd330e9531d9d32ada7049";
 export const MAX_RECORDING_BYTES = 100 * 1024 * 1024;
 
 export type SpeechReply =
   | { type: "progress"; message: string }
-  | { type: "ready" }
+  | { type: "ready"; offlineReady?: boolean }
   | { type: "result"; text: string }
   | { type: "error"; message: string };
 
 // Decode locally, downmix, and resample to Whisper's 16 kHz input.
 export async function decodeRecording(blob: Blob): Promise<Float32Array> {
   if (!blob.size || blob.size > MAX_RECORDING_BYTES)
-    throw new Error("Choose a recording smaller than 100 MB.");
+    throw new UserFacingError("Choose a recording smaller than 100 MB.");
   const context = new AudioContext();
   try {
     const decoded = await context.decodeAudioData(await blob.arrayBuffer());
     if (decoded.duration > 60 * 60)
-      throw new Error("Please split recordings longer than an hour into shorter parts.");
+      throw new UserFacingError("Please split recordings longer than an hour into shorter parts.");
     const offline = new OfflineAudioContext(1, Math.ceil(decoded.duration * 16000), 16000);
     const source = offline.createBufferSource();
     source.buffer = decoded;
@@ -26,7 +27,7 @@ export async function decodeRecording(blob: Blob): Promise<Float32Array> {
     let peak = 0;
     for (const sample of mono) peak = Math.max(peak, Math.abs(sample));
     if (peak < 0.002)
-      throw new Error(
+      throw new UserFacingError(
         "This recording is very quiet. Check the microphone, or choose another recording.",
       );
     return mono;

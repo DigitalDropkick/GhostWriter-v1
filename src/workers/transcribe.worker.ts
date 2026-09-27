@@ -10,6 +10,7 @@ if (env.backends.onnx.wasm) {
   env.backends.onnx.wasm.wasmPaths = { wasm: wasmUrl, mjs: wasmModuleUrl };
 }
 let model: AutomaticSpeechRecognitionPipeline | null = null;
+const speechFiles = new Set<string>();
 const send = (reply: SpeechReply) => self.postMessage(reply);
 let busy = false;
 self.onmessage = async (
@@ -38,18 +39,25 @@ self.onmessage = async (
                 type: "progress",
                 message: `Downloading speech files… ${Math.round(progress.progress)}% of this file`,
               });
-            else if (progress.status === "done")
+            else if (progress.status === "done") {
+              speechFiles.add(`https://huggingface.co/${LOCAL_MODEL}/resolve/${LOCAL_MODEL_REVISION}/${progress.file}`);
               send({ type: "progress", message: "Preparing private dictation…" });
+            }
           },
         },
       );
     }
     if (event.data.type === "prepare") {
-      send({ type: "ready" });
+      let offlineReady = false;
+      try {
+        const files = [...speechFiles, new URL(wasmUrl, self.location.origin).href, new URL(wasmModuleUrl, self.location.origin).href];
+        offlineReady = speechFiles.size > 0 && (await Promise.all(files.map((url) => caches.match(url)))).every(Boolean);
+      } catch { /* A loaded engine is usable even when storage refused a download. */ }
+      send({ type: "ready", offlineReady });
       return;
     }
     if (!event.data.audio?.length) throw new Error("No audio to transcribe.");
-    send({ type: "progress", message: "Turning your recording into words on this computer…" });
+    send({ type: "progress", message: "Turning your recording into words on this device…" });
     const result = await model(event.data.audio, {
       chunk_length_s: 30,
       stride_length_s: 5,

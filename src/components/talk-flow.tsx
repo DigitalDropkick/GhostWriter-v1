@@ -1,7 +1,9 @@
+import { UserFacingError, userMessage } from "@/lib/user-message";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useBook } from "@/lib/book-store";
 import { shapeDictation } from "@/lib/ai";
+import { useOnlineHelp } from "@/lib/use-online-help";
 import { decodeRecording, MAX_RECORDING_BYTES, type SpeechReply } from "@/lib/local-speech";
 import { loadAudio, saveAudio } from "@/lib/storage";
 import { downloadBlob, formatClock, uid, wordCount } from "@/lib/utils";
@@ -13,6 +15,7 @@ type Phase = "idle" | "preparing" | "recording" | "working" | "review";
 
 export function TalkFlow({ onClose, startInType }: { onClose: () => void; startInType?: boolean }) {
   const { state, book, chapter, updateDraft, commitDraft, flushSave } = useBook();
+  const onlineHelp = useOnlineHelp();
   const initial = state.draft ?? {
     bookId: book!.id,
     chapterId: chapter!.id,
@@ -71,7 +74,7 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
   }
   function cancelWork() {
     generation.current += 1;
-    rejectJob.current?.(new Error("Cancelled. Your recording is still available."));
+    rejectJob.current?.(new UserFacingError("Cancelled. Your recording is still available."));
     rejectJob.current = null;
     worker.current?.terminate();
     worker.current = null;
@@ -85,7 +88,7 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
     return () => {
       mounted.current = false;
       generation.current += 1;
-      rejectJob.current?.(new Error("Closed"));
+      rejectJob.current?.(new UserFacingError("Closed"));
       worker.current?.terminate();
       if (recorder.current?.state === "recording") recorder.current.stop();
       releaseMic();
@@ -161,7 +164,7 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
         w.terminate();
         worker.current = null;
         reject(
-          new Error(
+          new UserFacingError(
             "Private dictation could not start. Try again, or save your recording and contact Addam.",
           ),
         );
@@ -175,7 +178,7 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
         }
         if (reply.type === "error") {
           rejectJob.current = null;
-          reject(new Error(reply.message));
+          reject(new UserFacingError(reply.message));
         }
       };
       w.postMessage({ type, audio: samples }, samples ? [samples.buffer as ArrayBuffer] : []);
@@ -194,14 +197,14 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
       const text = await runWorker("transcribe", samples);
       if (token !== generation.current) return;
       if (!text)
-        throw new Error(
+        throw new UserFacingError(
           "No words were found. You can listen to the recording, type the words, or try again.",
         );
       changeWords(text);
       persist({ originalTranscript: text });
     } catch (err) {
       if (token === generation.current)
-        setError(err instanceof Error ? err.message : "Could not transcribe this recording.");
+        setError(userMessage(err, "This recording could not be read. Keep the original audio file, or use Save recording if available. You can type your words below."));
     } finally {
       if (mounted.current && token === generation.current) setPhase("review");
     }
@@ -216,7 +219,7 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
     setMessage("Preparing private dictation. The first download may take a few minutes…");
     try {
       if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined")
-        throw new Error(
+        throw new UserFacingError(
           "Microphone recording needs a secure page in Safari, Edge, or Chrome. You can still type or open a recording.",
         );
       await runWorker("prepare");
@@ -319,9 +322,7 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
       setError(
         err instanceof DOMException && err.name === "NotAllowedError"
           ? "Microphone access was blocked. Use the site controls beside the address bar to allow the microphone, then try again."
-          : err instanceof Error
-            ? err.message
-            : "Could not open the microphone.",
+          : userMessage(err, "The microphone could not start. Check that it is connected and not in use by another app, then try again. You can still type."),
       );
       setPhase("idle");
     }
@@ -378,13 +379,13 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
   async function downloadRecording() {
     try {
       const blob = await getRecording();
-      if (!blob) throw new Error("The recording was not found on this device.");
+      if (!blob) throw new UserFacingError("The recording was not found on this device.");
       downloadBlob(
         `My-recording.${blob.type.includes("mp4") ? "m4a" : blob.type.includes("wav") ? "wav" : blob.type.includes("mpeg") ? "mp3" : blob.type.includes("ogg") ? "ogg" : "webm"}`,
         blob,
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not open the recording.");
+      setError(userMessage(err, "The recording could not be opened. Keep this page open and try again. Your written words are still available."));
     }
   }
   async function retryTranscription() {
@@ -454,6 +455,7 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
   }
   async function polish() {
     polishing.current = true;
+    setError("");
     setConsentOpen(false);
     setPhase("working");
     setMessage("Asking for help with this passage…");
@@ -469,17 +471,15 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
           onlineConsent: true,
         },
       });
-      if (!result.ok) throw new Error(result.error);
+      if (!result.ok) throw new UserFacingError(result.error);
       setBeforePolish(original);
       changeWords(result.body);
       toast("Review the suggested wording before adding it to your book.");
     } catch (err) {
       setError(
         err instanceof Error && err.message === "Unauthorized"
-          ? "Sign in to use optional online writing help. Your private dictation still works without an account."
-          : err instanceof Error
-            ? err.message
-            : "Online help could not finish. Your original words are unchanged.",
+          ? "Please sign in again to use online writing help. Your words and recordings are still on this device."
+          : userMessage(err, "Online help could not finish. Your original words are unchanged."),
       );
     } finally {
       polishing.current = false;
@@ -628,10 +628,10 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
           </div>
           <details className="border-t border-rule pt-4">
             <summary className="cursor-pointer text-lg text-ink-soft">
-              Optional writing help & draft tools
+              Draft tools
             </summary>
             <div className="mt-4 space-y-4">
-              <p className="text-base text-ink-soft">
+              {onlineHelp && <><p className="text-base text-ink-soft">
                 Online writing help sends only this passage and your voice notes as text to xAI. It
                 does not receive the recording. Private dictation does not need this.
               </p>
@@ -643,6 +643,7 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
               >
                 Review online writing help
               </Button>
+              </>}
               {beforePolish !== null && (
                 <Button
                   size="md"
@@ -705,11 +706,11 @@ export function TalkFlow({ onClose, startInType }: { onClose: () => void; startI
         <div className="space-y-5">
           <h2 className="font-serif text-3xl">Tell the next part</h2>
           <p className="text-lg text-ink-soft">
-            Speak naturally. We’ll turn your recording into words right here on the laptop, then let
+            Speak naturally. We’ll turn your recording into words right here on this device, then let
             you review them.
           </p>
           <p className="rounded-lg border border-rule bg-paper-deep/50 p-4 text-base text-ink-soft">
-            The first use downloads speech files from Hugging Face. Downloads need internet; your
+            The first use downloads the files needed for dictation. Downloads need internet; your
             recording is processed on this device and is not sent with them.
           </p>
           <Button size="xl" onClick={() => void startTalking()}>

@@ -15,7 +15,7 @@ export function useOfflineRoom() {
   }, []);
   useEffect(() => {
     if (!import.meta.env.PROD) {
-      setStatus("Offline setup is available in the release build.");
+      setStatus("Offline reopening is not available in this preview.");
       return;
     }
     if (!("serviceWorker" in navigator)) {
@@ -25,8 +25,37 @@ export function useOfflineRoom() {
     let alive = true;
     let timer: number | undefined;
     const readyMessage = "Ready to reopen offline. Dictation needs its speech download first.";
-    // An offline update check may fail even when this app is already cached.
-    if (navigator.serviceWorker.controller) setStatus(readyMessage);
+    const verify = async (worker: ServiceWorker | null, waiting = false) => {
+      if (!worker) return false;
+      const ready = await new Promise<boolean>((resolve) => {
+        const channel = new MessageChannel();
+        const timeout = window.setTimeout(() => {
+          channel.port1.close();
+          resolve(false);
+        }, 15000);
+        channel.port1.onmessage = (event: MessageEvent<{ ready?: boolean }>) => {
+          window.clearTimeout(timeout);
+          channel.port1.close();
+          resolve(event.data?.ready === true);
+        };
+        worker.postMessage({ type: "OFFLINE_STATUS", repair: navigator.onLine }, [channel.port2]);
+      });
+      if (alive)
+        setStatus(
+          ready
+            ? waiting
+              ? "Ready to reopen offline. An update is ready for the next time all Ghostwriter windows are closed."
+              : readyMessage
+            : "Offline setup is incomplete. Keep this page open and reconnect to the internet to try again.",
+        );
+      return ready;
+    };
+    // A controller alone is not proof that all of the offline files are still present.
+    if (navigator.serviceWorker.controller) void verify(navigator.serviceWorker.controller);
+    const recheck = () => {
+      void verify(navigator.serviceWorker.controller);
+    };
+    window.addEventListener("online", recheck);
     void navigator.serviceWorker
       .register("/ghostwriter-sw.js", { scope: "/", updateViaCache: "none" })
       .then(async (registration) => {
@@ -37,25 +66,19 @@ export function useOfflineRoom() {
           }),
         ]);
         window.clearTimeout(timer);
-        if (alive)
-          setStatus(
-            registration.waiting
-              ? "An update is ready. Close all Ghostwriter windows after saving to use it."
-              : readyMessage,
-          );
+        if (alive) await verify(registration.active, Boolean(registration.waiting));
       })
       .catch(() => {
         window.clearTimeout(timer);
-        if (alive)
-          setStatus(
-            navigator.serviceWorker.controller
-              ? readyMessage
-              : "Offline setup did not finish. Reopen with internet to try again.",
-          );
+        if (alive && navigator.serviceWorker.controller)
+          void verify(navigator.serviceWorker.controller);
+        else if (alive)
+          setStatus("Offline setup did not finish. Reopen with internet to try again.");
       });
     return () => {
       alive = false;
       window.clearTimeout(timer);
+      window.removeEventListener("online", recheck);
     };
   }, []);
   return { status, offline };

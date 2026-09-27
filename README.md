@@ -1,70 +1,71 @@
-# Ghostwriter v3
+# Ghostwriter v4
 
-A quiet writing room for dictating, editing, reading, and printing books. V3 brings an iPhone Home Screen edition alongside the Windows writing room, with large controls, private dictation, offline reopening, and a book-inspired visual identity. See [V3-IPHONE.md](V3-IPHONE.md) for installation, test evidence, and the native iOS release path. This is an **iPhone test release**: automated checks passed on a private HTTPS preview, while physical iPhone acceptance remains pending. It is not a signed native iOS or App Store release.
+A quiet, private writing room from Digital Dropkick. Talk or type, keep unfinished drafts, read, listen, print, and back up books. V4 is the first Cloudflare production line (the brief's “CF v1.0”), published separately from the existing v2/v3 history. It keeps the book-like identity and existing local library format.
 
-## Voice privacy
+**This repository is prepared and tested locally. It has not been deployed to Cloudflare.** Choose the permanent domain and configure Access before any deployment. Physical iPhone and client-device acceptance are still required.
 
-- **Recordings are processed on the device.** A dedicated browser worker runs a pinned, quantized Whisper Tiny English model using Transformers.js and WebAssembly. No browser `SpeechRecognition` service is used; those services can send audio remotely.
-- **First use downloads speech files from Hugging Face.** The inference runtime ships with the app. Downloading model files sends ordinary web-request information to the file host, but no recording or manuscript. Cached model files are reused. The production app caches its writing room for offline reopening after a successful online visit. Speech needs its own first download; cached files can still be evicted by the browser. Development mode does not install an offline cache.
-- **There is no cloud audio fallback.** The old `/api/transcribe` and `/api/tts` endpoints return HTTP 410 without parsing or forwarding the body, even when a provider key is present.
-- **Reading uses an installed English voice** marked `localService` by the browser. If none is available, the app gives instructions instead of silently selecting an online voice.
-- **Online text editing is optional and off on the server by default.** It requires `GHOSTWRITER_ONLINE_HELP=true`, an existing server-side `XAI_API_KEY`, the app's authentication middleware, and explicit consent for each passage. The consent names xAI and shows its privacy-policy link. Only the new passage and writing preferences are sent, never the recording or existing chapter. The author reviews the returned wording before insertion. No claim is made about an outside provider's retention or training policies.
-- Books, drafts, history, and recordings live in this browser's IndexedDB. **Signing in is not a cloud backup.** Browser data is not application-encrypted. Exported backups contain private content and should be kept safely.
+**Keep a stable website address. Before changing the domain, export and verify a Ghostwriter backup from every writing device.** Browser libraries belong to an origin and browser profile. A new domain, private window, or different browser opens a different library. Signing in is not a cloud backup. Clearing website data or deleting an installed app can remove books.
 
-The existing web-hosting, authentication, and Grok platform integration remain. Local voice processing does not make the whole website air-gapped or eliminate the need to trust its hosting and JavaScript. Fonts are now bundled locally, including their SIL Open Font Licenses, for consistent offline reading. No claim is made about a user's operating system or browser extensions.
+## Client experience
 
-Technical references: [Transformers.js model usage](https://huggingface.co/Xenova/whisper-tiny.en), [browser local voice flag](https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesisVoice/localService), [MediaRecorder final-data ordering](https://developer.mozilla.org/en-US/docs/Web/API/MediaRecorder/stop_event).
+- Start a book or reopen the last book. Choose **Talk → Start private dictation**, or **Type instead**. Review the passage and choose **Write this into the book**. Existing chapter text is preserved.
+- Wait for **Saved on this device**. If saving fails, keep the page open, download a backup, and follow the warning. **Keep draft for later** preserves unfinished work; **Continue my draft** resumes it.
+- **Page history** keeps up to 20 earlier versions per chapter. Recording checkpoints help recover interruptions; the last unsaved seconds can still be lost. Keep the page open while recording and saving. Long microphone sessions finish at about 55 minutes.
+- **Backups** (**Keep safe** on a phone) exports books, recordings, drafts, original transcripts, and history. Check for the downloaded file. Restore adds separate copies; existing books are not replaced. A text-only backup preserves the words when recordings cannot be included. Restore files are limited to 250 MB.
+- **Install Ghostwriter** explains installation from the domain: Chrome/Edge on Windows; Safari → Share → Add to Home Screen on iPhone. This is an installable web app, not a standalone Windows installer or App Store application.
+- Set up the installed icon while online. App readiness and **Prepare offline dictation** are separate. Test a short recording offline before relying on it. Downloads can be evicted by the browser, so keep backups.
+- Devices do not sync. Move books with a backup. The same browser profile has one library regardless of which approved Access account signs in.
 
-## Writing and recovery
+The [printable guide](public/getting-started.pdf) and [guide component](src/components/getting-started-sheet.tsx) cover everyday operation.
 
-1. Start a book or choose one under **Your books**.
-2. Choose **Talk → Start private dictation**. First-time setup downloads speech files before asking for microphone access. Speak naturally; text appears after **I’m finished**. Imported recordings use the same local engine.
-3. Review the text, then choose **Write this into the book**. Existing chapter text is preserved exactly. Short passages work too.
-4. **Keep draft for later** saves unfinished work. The writing room offers to reopen it on the next visit. During recording, periodic audio checkpoints help recover interrupted sessions; the most recent seconds can still be lost if the browser crashes. Keep the page open until recording and saving finish.
-5. Use **Page history** to recover earlier pages or read original passages. Up to 20 previous versions per chapter are kept before dictation, editing sessions, or restoration. This is not per-keystroke undo.
-6. Choose **Backups → Download backup** after writing (on a phone, **Keep safe** opens backups). Backups include all books, transcripts, recordings, the unfinished draft, and page history. Restore imports separate copies and never replaces existing books. Keep a copy in Files, on another device, or on a USB drive. **Prepare backup for Files → Save or share backup** opens the supported device share sheet on the second tap. Cancelling it does not trigger a download. **Save a text copy** also exports the current book for other word processors.
+## Privacy and architecture
 
-If a recording is missing or the full backup is too large, use **Backups → Back up words without recordings → Save text-only backup**. This preserves every book, original transcript, draft, and page-history entry in a restorable file, with audio explicitly left out. A failed restore keeps its incoming recordings in memory for backup and retry; wait for **Saved on this device** before closing the page.
+React/TanStack Start runs through the official Cloudflare Vite plugin and Workers server entry. [Architecture](docs/ARCHITECTURE.md) explains the small server boundary. [Cloudflare setup](docs/CLOUDFLARE.md) covers Access, variables, secrets, deployment, and rollback. [Validation](docs/VALIDATION.md) records acceptance coverage and remaining manual checks. The [release manifest](docs/V4-RELEASE-MANIFEST.md) lists every changed file and direct dependency.
 
-Long microphone sessions stop and save at about 55 minutes, before the transcription engine's one-hour limit. Short passages are easier to review and faster to process.
+- Books, drafts, history and original audio remain in the existing browser IndexedDB database. Its name, version, stores, state key and backup format are unchanged. No D1, KV, R2, Durable Object, analytics or cloud manuscript service is added.
+- A browser worker performs local WASM inference using `Xenova/whisper-tiny.en`, revision `79fb389fc764e7c395bd330e9531d9d32ada7049`. First use downloads speech files from Hugging Face; audio and manuscripts are not included. No cloud speech fallback exists. `/api/transcribe` and `/api/tts` return 410 after Access validation.
+- Reading uses an installed English voice reported as local by the browser. Fonts are bundled with their licenses.
+- Online writing help is off and hidden by default. If explicitly enabled later, it sends only a consented passage and voice notes to xAI, through the Worker. The model is configurable. A provider key, Access, limits, and per-passage consent are all required. No provider key is needed for local dictation, typing, backups, reading, or printing.
+- Local data and exported backup files are not application-encrypted. Access protects online requests; it cannot lock or revoke a downloaded offline library. Protect the Windows/iPhone account and device. The app and its hosting still need to be trusted. A [future encrypted-backup design](docs/FUTURE-ENCRYPTED-BACKUP.md) is documentation only.
 
-Use the same website address, browser, and browser profile each time. Private/InPrivate windows and clearing browser data can remove local work. A changed domain or browser has a different library; transfer it with a backup. For very large libraries, ask Addam for help before clearing anything (browser restore is limited to 250 MB).
+## Develop and verify
 
-## Development
-
-Node 22.12+ or Node 24 and npm are required. This is an existing TanStack Start / React / Vite application. No provider key is needed for private dictation, typing, local playback, backups, or printing.
+Use Node 22.12+ (verified with Node 24.18) and npm. No provider credentials are required.
 
 ```sh
 npm ci
-npm run dev -- --host 127.0.0.1 --port 4317
+npm run dev
 ```
 
-Visit `http://127.0.0.1:4317`. Microphones require localhost or HTTPS. The default dev command retains the original port 8080 convention; choose an unused port rather than stopping another service. `startup.sh` now resolves its own directory instead of assuming `/workspace`.
+Development serves `http://127.0.0.1:8080`. Only Vite development on loopback bypasses Access. Production contains no configurable bypass and fails closed without Access configuration. Development does not register the offline worker. Do not reuse a writing browser profile for development.
 
 ```sh
 npm run typecheck
 npm run lint
 npm test
-npm run test:browser -- http://127.0.0.1:4317
-npm run test:browser -- http://127.0.0.1:4317 --speech
-npm run test:recovery -- http://127.0.0.1:4317
 npm run build
-npm run preview
-npm run test:iphone -- http://127.0.0.1:8081
+npm run test:production
 ```
 
-The browser suites use Playwright Chromium, or `/usr/bin/google-chrome` if Playwright's browser is absent. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` for another installed Chrome/Edge executable. `--speech` downloads the public JFK sample from the Transformers.js documentation, exercises the real browser worker, repeats inference with networking disabled, and asserts that private writing sends no upload requests. The core suite injects slow/unavailable/full storage and tab conflicts. The recovery suite covers cancellation, atomic restore and retry, text-only backups, title history, worker failure, recording duration, exports, printing, and local-voice chunking. These use synthetic content and controlled failures, not real hardware-failure demonstrations. Evidence goes under `screenshots/qa-review/` and `screenshots/qa-recovery/` (ignored by Git).
+For browser verification of the built Worker, start this **local-only test server** in another terminal. It generates a temporary RSA key and synthetic Access assertions in memory, serves synthetic JWKS, and binds only to loopback. Nothing is deployed and no real login/provider key is used.
 
-`npm run build` also runs the existing database migration command. **Do not supply a production `DATABASE_URL` during local validation.** With no database URL, that step skips remote migrations. Auth uses the template's local PGLite fallback.
+```sh
+node scripts/worker-test-server.mjs
+```
 
-Generated `.vercel/output` is no longer versioned. Build it from the source and lockfile; do not deploy an old checked-in bundle. Original platform integration remains; head injection now respects a custom manifest and touch icon instead of adding duplicate platform links.
+Then:
 
-## Release and rollback
+```sh
+node scripts/ghostwriter-browser.mjs http://127.0.0.1:8081 --speech
+npm run test:recovery
+npm run test:iphone
+node scripts/ghostwriter-polish.mjs http://127.0.0.1:8081
+npm audit
+git diff --check
+```
 
-V3 is published on **`main`** and preserved under tag **[`v3`](https://github.com/DigitalDropkick/GhostWriter-v1/releases/tag/v3)** as an iPhone test release. The repository retains its original `GhostWriter-v1` name. The recovered privacy/recovery work remains preserved under tag **`v2`**, commit `002002b8be8922b4baa35d141dc4fbb630d034a0`; the later tested v2 checkpoint is `33bb753`. **`V2-AUDIT.md`** describes those follow-up fixes, and `REVIEW.md` records the earlier review. GitHub publication and the private test preview do not establish public production readiness. Physical Windows and iPhone checks remain required.
+Tests use Playwright Chromium or installed Chrome. Set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to use Edge or another local Chromium executable. Synthetic microphone/share/voice events test lifecycle behavior; they do not certify real iOS hardware. `--speech` also downloads public JFK sample audio and tests the actual local model, including a new speech worker after offline reload. Browser evidence is under ignored `screenshots/qa-*` directories. Stop the test server before `npm ci` on Windows to release the local runtime executable.
 
-Before switching an existing installation, download its books as text, preserve its browser profile, and take an IndexedDB/browser-data backup with Addam's assistance. The old app does not have the new full-library backup button. Keep the same origin and browser profile: the database name, version, stores, and legacy state key are unchanged, and valid old libraries load in place.
+`npm run build` generates the printable HTML, client assets, Worker and integrity-verified static offline shell. It does not run database migrations or deploy. After changing guide wording, build, start the test server, run `node scripts/print-guide.mjs`, visually review the regenerated PDF, then rebuild so the downloadable file enters the offline integrity manifest.
 
-After upgrading, make a full Ghostwriter backup before substantial writing. To inspect the last tested v2 checkpoint without moving `main` or disturbing v3, use `git worktree add ../GhostWriter-v2-review 33bb753`, then install its lockfile and build in that separate checkout. Preserve browser storage and back up first. The earlier `v2` tag predates the recovery fixes in `V2-AUDIT.md`; the much older original commit `d7a1faa34bed1bcde1bc361ab073d2fd96d650ee` also restores cloud-audio behavior and the original save bugs. For an installed v3 app, follow the service-worker rollback guidance in `V3-IPHONE.md` before changing deployed source.
-
-Remaining real-device checks: Windows Edge/Chrome microphone permission, microphone quality, recognition accuracy for the author's own voice, installed English reading voices, and print output on his printer. The small local model can mishear names and accents; review remains essential. No grandfather/customer recording is used in automated tests.
+V2/V3 audit documents remain historical records, not current deployment instructions. Use the v4 documentation for this production branch. Never roll back to an older cloud-audio version or remove local browser data as part of an application rollback.

@@ -5,10 +5,10 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { checkedUrl } from "./browser-guard.mjs";
 
 const base = checkedUrl(process.argv[2] || "http://127.0.0.1:8081/");
-const output = "screenshots/qa-v3";
+const output = "screenshots/qa-v4";
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({
-  executablePath: existsSync(chromium.executablePath()) ? undefined : "/usr/bin/google-chrome",
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || (existsSync(chromium.executablePath()) ? undefined : (process.platform === "win32" ? "C:/Program Files/Google/Chrome/Application/chrome.exe" : "/usr/bin/google-chrome")),
   args: ["--no-sandbox", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
 });
 const context = await browser.newContext({
@@ -146,7 +146,8 @@ try {
       )
     ).flat();
   });
-  assert.ok(cached.includes("/"));
+  assert.ok(cached.includes("/offline.html"));
+  assert.equal(cached.includes("/"), false);
   assert.ok(cached.some((p) => p.endsWith(".js")));
   assert.ok(
     !cached.some((p) => p.startsWith("/api/") || p.startsWith("/auth/") || p.includes("_serverFn")),
