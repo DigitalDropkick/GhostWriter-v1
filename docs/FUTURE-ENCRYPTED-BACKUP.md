@@ -1,0 +1,11 @@
+# Possible future encrypted backup - design only
+
+No R2 bucket, encryption, upload endpoint, cloud backup UI or cloud manuscript storage is implemented in v4.
+
+If explicitly commissioned later, start with manual **Encrypt and back up** and **Restore encrypted backup**, using the existing complete local backup format. Encrypt in the browser before any network transmission. Use a reviewed, versioned envelope containing a random salt, key-derivation parameters, unique random nonce and authenticated ciphertext (for example AES-GCM through Web Crypto). Derive the encryption key from a separately held recovery passphrase with a reviewed, suitably expensive derivation scheme. Never send that passphrase or key to the Worker. Key derivation parameters, nonce uniqueness, authentication checks and large-backup memory use need independent review and tests.
+
+The Access-authenticated Worker would authorize ownership using a stable subject, enforce upload/download size and frequency limits, and store only opaque ciphertext in a private R2 bucket. Use random object names, not book titles or email addresses. The server may still see object size, upload times and owner association. Restrict retrieval to the same owner; do not use guessable links or public buckets. Keep versioned backups and explicit deletion/retention rules. Never call a backup complete until the remote ciphertext is acknowledged and its integrity is checked.
+
+Restore should download, authenticate and decrypt locally, validate the existing backup format, then import separate copies through the existing atomic restore flow. Wrong passphrases, tampering, interrupted uploads and storage failure must leave the existing library untouched. Preserve ordinary downloadable backups as an independent escape route.
+
+The author must understand that losing the recovery passphrase can make the encrypted backup unrecoverable, even by Addam. Cross-device restore requires that passphrase. Server-side encryption alone does not satisfy the desired privacy boundary. Browser-side encryption protects stored remote content, but still relies on trusted application code at the time the passphrase is entered. Resolve recovery UX and threat model before implementing anything.

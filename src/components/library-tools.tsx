@@ -1,3 +1,4 @@
+import { UserFacingError, userMessage } from "@/lib/user-message";
 import { useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { useBook } from "@/lib/book-store";
@@ -33,12 +34,15 @@ export function LibraryTools() {
       );
       setMessage(
         includeAudio
-          ? "Backup download started. Keep this file somewhere safe, such as a USB drive. It contains your private books and recordings."
+          ? "Backup download started. Check for the file, then keep it somewhere safe, such as a USB drive. It contains your private books and recordings."
           : "Text-only backup download started. It keeps every book, transcript, draft, and page history, but leaves out recordings.",
       );
     } catch (error) {
       setMessage(
-        error instanceof Error ? error.message : "Backup could not finish. Please try again.",
+        userMessage(
+          error,
+          "The backup could not finish. Your books have not been removed. Keep this page open and try a text-only backup to protect your words.",
+        ),
       );
     } finally {
       setBusy(false);
@@ -49,7 +53,9 @@ export function LibraryTools() {
     setMessage("");
     try {
       if (input.size > 250 * 1024 * 1024)
-        throw new Error("This backup is larger than 250 MB. Ask Addam to help restore it.");
+        throw new UserFacingError(
+          "This backup is larger than 250 MB. Ask Addam to help restore it.",
+        );
       setPending(parseBackup(await input.text()));
     } catch {
       setPending(null);
@@ -67,7 +73,7 @@ export function LibraryTools() {
     setMessage("Restoring a separate copy of your books…");
     try {
       if (state.draft && pending.state.draft)
-        throw new Error(
+        throw new UserFacingError(
           "Finish or discard your current draft before restoring a backup that also has an unfinished draft.",
         );
       const imported = prepareImport(pending);
@@ -78,9 +84,10 @@ export function LibraryTools() {
       );
     } catch (error) {
       setMessage(
-        error instanceof Error
-          ? error.message
-          : "Restore could not finish. Keep the backup file and try again.",
+        userMessage(
+          error,
+          "The restored books are not saved yet. Keep this page and your backup file open. Use the save warning to retry, or download a backup of the books shown here.",
+        ),
       );
     } finally {
       setBusy(false);
@@ -126,7 +133,14 @@ export function LibraryTools() {
                         : "Backup download started. Keep it somewhere safe.",
                   ),
                 )
-                .catch((error) => setMessage(error.message))
+                .catch((error) =>
+                  setMessage(
+                    userMessage(
+                      error,
+                      "Sharing could not finish. Your backup has not been saved to Files. Use Download backup, then check for the file.",
+                    ),
+                  ),
+                )
                 .finally(() => setBusy(false));
             }}
           >

@@ -9,7 +9,7 @@ const output = "screenshots/qa-recovery";
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({
   executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
-    (existsSync(chromium.executablePath()) ? undefined : "/usr/bin/google-chrome"),
+    (existsSync(chromium.executablePath()) ? undefined : (process.platform === "win32" ? "C:/Program Files/Google/Chrome/Application/chrome.exe" : "/usr/bin/google-chrome")),
   args: ["--no-sandbox", "--disable-dev-shm-usage", "--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"],
 });
 const results = [];
@@ -130,7 +130,7 @@ try {
     await page.getByRole("button", { name: "Backups", exact: true }).click();
     await page.getByLabel("Choose a Ghostwriter backup", { exact: true }).setInputFiles({ name: "backup.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(backup)) });
     await page.getByRole("button", { name: "Restore these books", exact: true }).click();
-    await page.getByRole("dialog").getByRole("status").filter({ hasText: /Disk full|could not save/ }).waitFor();
+    await page.getByRole("dialog").getByRole("status").filter({ hasText: /restored books are not saved yet/ }).waitFor();
     const disk = await stored(page);
     assert.equal(disk.state.books.length, 1);
     assert.deepEqual(disk.audio, [], "No orphan audio may remain from a failed restore");

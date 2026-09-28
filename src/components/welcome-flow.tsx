@@ -4,10 +4,7 @@ import { Button } from "@/components/ui/button";
 import { useBook } from "@/lib/book-store";
 import {
   KIND_LABEL,
-  POLISH_HELP,
-  POLISH_LABEL,
   type BookKind,
-  type PolishLevel,
 } from "@/lib/types";
 import { Modal } from "./ui/modal";
 import { LibraryTools } from "./library-tools";
@@ -16,7 +13,6 @@ import { PhoneSetup } from "./phone-setup";
 import { Feather, Mic, Smartphone } from "lucide-react";
 
 const KINDS: BookKind[] = ["memoir", "family", "novel", "other"];
-const POLISH: PolishLevel[] = ["faithful", "light", "literary"];
 
 export function WelcomeFlow({
   onEnterDesk,
@@ -32,7 +28,6 @@ export function WelcomeFlow({
   const [author, setAuthor] = useState("");
   const [title, setTitle] = useState("");
   const [kind, setKind] = useState<BookKind>("memoir");
-  const [polish, setPolish] = useState<PolishLevel>("faithful");
 
   const sample = state.books.find((b) => b.isSample);
 
@@ -41,7 +36,7 @@ export function WelcomeFlow({
       title: title || "My Story",
       author: author || "Anonymous",
       kind,
-      polish,
+      polish: "faithful",
       voiceNotes: "",
     });
     onEnterDesk();
@@ -55,7 +50,7 @@ export function WelcomeFlow({
         <span className="edition-label">THE WRITING ROOM</span>
       </header>
       {phoneOpen && (
-        <Modal title="Ghostwriter on your iPhone" onClose={() => setPhoneOpen(false)}>
+        <Modal title="Install Ghostwriter" onClose={() => setPhoneOpen(false)}>
           <PhoneSetup offlineStatus={offlineStatus} />
         </Modal>
       )}
@@ -119,7 +114,7 @@ export function WelcomeFlow({
             <li>
               <span>03</span>
               <div>
-                <strong>Keep it forever.</strong>
+                <strong>Keep a copy.</strong>
                 <p>Save a copy, share it, or print your book.</p>
               </div>
             </li>
@@ -135,7 +130,7 @@ export function WelcomeFlow({
               </Button>
               <Button variant="quiet" size="md" onClick={() => setPhoneOpen(true)}>
                 <Smartphone className="size-4" />
-                Set up on iPhone
+                Install Ghostwriter
               </Button>
               <Link to="/start" className="page-tool text-moss underline">
                 Getting-started guide
@@ -203,20 +198,14 @@ export function WelcomeFlow({
 
       {step === 4 ? (
         <Question
-          kicker="Optional writing help"
-          title="If you ask for editing help, how much?"
-          hint="Private dictation keeps your words as you review them. These preferences apply only if you later agree to send a passage for online editing."
+          kicker="Your writing room"
+          title="A little story, whenever you’re ready."
+          hint="Talk or type, review your words, then add them to your book."
         >
-          <div className="grid gap-3">
-            {POLISH.map((p) => (
-              <Choice
-                key={p}
-                selected={polish === p}
-                title={POLISH_LABEL[p]}
-                body={POLISH_HELP[p]}
-                onClick={() => setPolish(p)}
-              />
-            ))}
+          <div className="space-y-4 rounded-lg border border-rule bg-paper-deep/40 p-5 text-lg text-ink-soft">
+            <p>Your books save automatically on this device. Look for “Saved on this device” before leaving.</p>
+            <p>Use the same browser or Home Screen icon each time. Keep a backup in Files or on another device after each writing session.</p>
+            <p>Use a regular browser window. Private browsing and clearing site data can remove your local library.</p>
           </div>
           <Nav onBack={() => setStep(3)} onNext={finish} nextLabel="Open the writing room" icon />
         </Question>

@@ -1,3 +1,4 @@
+import { UserFacingError } from "./user-message";
 import type { PersistedState } from "./types";
 import { makeSampleBook } from "./sample";
 import { parseState } from "./state-schema";
@@ -60,7 +61,7 @@ export async function loadState(): Promise<{ state: PersistedState; revision: nu
   }
 }
 
-export class SaveConflictError extends Error {
+export class SaveConflictError extends UserFacingError {
   constructor() {
     super("Another Ghostwriter tab saved changes. Download a backup of this tab before reloading.");
   }

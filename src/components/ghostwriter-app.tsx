@@ -1,3 +1,4 @@
+import { userMessage } from "@/lib/user-message";
 import { useMemo, useState } from "react";
 import {
   BookOpen,
@@ -23,7 +24,7 @@ import { useBook } from "@/lib/book-store";
 import { shareFile } from "@/lib/share-file";
 import { downloadText, wordCount } from "@/lib/utils";
 import { KIND_LABEL, POLISH_LABEL, type AppMode, type TypeSize } from "@/lib/types";
-import { SignedIn, UserButton } from "@/lib/auth/gates";
+import { useOnlineHelp } from "@/lib/use-online-help";
 import { toast } from "sonner";
 import { Modal } from "./ui/modal";
 import { LibraryTools } from "./library-tools";
@@ -32,6 +33,7 @@ import { PhoneSetup } from "./phone-setup";
 import { useOfflineRoom } from "@/lib/use-offline-room";
 
 export function GhostwriterApp() {
+  const onlineHelp = useOnlineHelp();
   const {
     ready,
     loadError,
@@ -110,15 +112,15 @@ export function GhostwriterApp() {
           if (result !== "cancelled")
             toast(
               result === "shared"
-                ? "Book handed to the share sheet."
-                : "A copy of the book is in your downloads.",
+                ? "Choose where to save your book, then check for the file."
+                : "Download started. Check your downloads for the book.",
             );
         })
-        .catch((error) => toast.error(error.message));
+        .catch((error) => toast.error(userMessage(error, "Sharing could not finish. Use Save a text copy, then check for the downloaded file.")));
       return;
     }
     downloadText(`${slug}.txt`, parts.join("\n"));
-    toast("A copy of the book is in your downloads.");
+    toast("Download started. Check your downloads for the book.");
   }
 
   const shelf = (
@@ -217,7 +219,7 @@ export function GhostwriterApp() {
     <div className={`writing-room paper-grain min-h-dvh ${sizeClass}`}>
       <header className="room-header no-print sticky top-0 z-20 border-b border-rule bg-paper">
         <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <button
               type="button"
               disabled={sessionOpen}
@@ -243,6 +245,7 @@ export function GhostwriterApp() {
               </Button>
               <Link
                 to="/start"
+                className="page-tool rounded-[14px] px-5 font-bold text-ink-soft hover:bg-paper-deep"
                 onClick={(e) => {
                   if (sessionOpen) {
                     e.preventDefault();
@@ -250,9 +253,7 @@ export function GhostwriterApp() {
                   }
                 }}
               >
-                <Button size="md" variant="quiet">
-                  Guide
-                </Button>
+                Guide
               </Link>
               <Button
                 size="md"
@@ -273,9 +274,6 @@ export function GhostwriterApp() {
                 <Settings className="size-4" />
                 <span className="hidden sm:inline">Settings</span>
               </Button>
-              <SignedIn>
-                <UserButton />
-              </SignedIn>
             </div>
             <div className="phone-header-tools">
               <Button
@@ -326,8 +324,7 @@ export function GhostwriterApp() {
           role="status"
           className="no-print mx-auto mt-4 max-w-4xl rounded-md border border-rule bg-paper-deep p-4"
         >
-          You’re offline. Your words still save on this device. Dictation needs its speech files
-          downloaded beforehand.
+          You’re offline. Keep writing and watch for “Saved on this device.” Dictation needs its speech files downloaded beforehand.
         </p>
       )}
       {saveError && (
@@ -561,7 +558,7 @@ export function GhostwriterApp() {
                   />
                 </Field>
               ) : null}
-              <Field label="Optional online writing style">
+              {onlineHelp && <><Field label="Optional online writing style">
                 <p className="mb-2 text-base text-ink-soft">{POLISH_LABEL[book.polish]}</p>
                 <div className="grid gap-2">
                   {(["faithful", "light", "literary"] as const).map((p) => (
@@ -588,6 +585,7 @@ export function GhostwriterApp() {
                   className="w-full rounded-[16px] border border-rule bg-paper px-4 py-3 text-lg outline-none focus:border-moss"
                 />
               </Field>
+              </>}
               <Field label="Print and reading size">
                 <div className="flex flex-wrap gap-2">
                   {(
@@ -619,12 +617,11 @@ export function GhostwriterApp() {
                 }}
               >
                 <Smartphone className="size-5" />
-                Set up on iPhone
+                Install Ghostwriter
               </Button>
               <p className="text-base text-ink-faint">
                 This is a {KIND_LABEL[book.kind].toLowerCase()}. Your library is saved in this
-                browser. Private dictation processes audio on your device. Optional online writing
-                help sends text only after you agree.
+                browser. Private dictation processes audio on your device. A backup file keeps a separate copy of your work.
               </p>
               <div className="flex flex-col gap-3 sm:flex-row">
                 <Button
@@ -794,7 +791,7 @@ export function GhostwriterApp() {
               }}
             >
               <Smartphone />
-              Set up on iPhone
+              Install Ghostwriter
             </Button>
             <Link to="/start" className="page-tool text-center underline">
               Getting-started guide
@@ -803,7 +800,7 @@ export function GhostwriterApp() {
         </Modal>
       )}
       {phoneOpen && (
-        <Modal title="Ghostwriter on your iPhone" onClose={() => setPhoneOpen(false)}>
+        <Modal title="Install Ghostwriter" onClose={() => setPhoneOpen(false)}>
           <PhoneSetup offlineStatus={offlineStatus} />
         </Modal>
       )}

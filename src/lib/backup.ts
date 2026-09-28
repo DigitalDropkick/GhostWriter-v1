@@ -1,3 +1,4 @@
+import { UserFacingError } from "./user-message";
 import { z } from "zod";
 import { parseState } from "./state-schema";
 import { loadAudio, type AudioEntry } from "./storage";
@@ -41,13 +42,13 @@ export async function createBackup(
   for (const id of ids) {
     const blob = pendingAudio.find((entry) => entry.id === id)?.blob ?? await loadAudio(id);
     if (!blob)
-      throw new Error(
+      throw new UserFacingError(
         "A recording is missing. Save a text-only backup to protect all your words, and contact Addam before clearing browser data.",
       );
     const data = await new Promise<string>((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(String(reader.result).split(",")[1]);
-      reader.onerror = () => reject(new Error("Could not read a recording."));
+      reader.onerror = () => reject(new UserFacingError("Could not read a recording."));
       reader.readAsDataURL(blob);
     });
     audio.push({ id, type: blob.type, data });
@@ -70,7 +71,7 @@ export function parseBackup(text: string) {
     state.sessions.some((s) => s.audioId && !ids.has(s.audioId)) ||
     (state.draft?.audioId && !ids.has(state.draft.audioId))
   )
-    throw new Error("The backup is missing a recording.");
+    throw new UserFacingError("The backup is missing a recording.");
   return { ...backup, state };
 }
 

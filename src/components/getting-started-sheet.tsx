@@ -1,115 +1,115 @@
-export function GettingStartedSheet({ address }: { address?: string }) {
+export function GettingStartedSheet() {
   return (
     <article className="start-sheet mx-auto bg-paper text-ink">
       <header className="start-sheet-head">
-        <p className="start-kicker">Ghostwriter · keep this sheet by the computer</p>
-        <h1 className="font-serif">You talk. It writes. You read, hear, or print.</h1>
+        <p className="start-kicker">Ghostwriter · Digital Dropkick</p>
+        <h1 className="font-serif">Your story, in your words.</h1>
         <p className="start-lead">
-          That is the whole program. Your story stays in your voice — your words,
-          your humor, the way you tell a thing. Private dictation keeps audio on this
-          computer. The first use downloads speech files, not your recording.
+          A quiet place to talk, type, read, listen, and print. Your books and recordings stay on
+          the device where you write.
         </p>
       </header>
-
       <div className="start-address">
-        <p className="start-label">The address of your book</p>
-        {address ? (
-          <p className="start-url">{address}</p>
-        ) : (
-          <p className="start-url start-url-blank">
-            Addam will write this here, or you copy it from his message.
-          </p>
-        )}
+        <p className="start-label">Make yourself at home</p>
         <p className="start-hint">
-          Open it in <strong>Microsoft Edge</strong> (the blue e) or{" "}
-          <strong>Google Chrome</strong>. Pick one. Always use that same program
-          — if you switch, it can look like an empty book even though yours is
-          still there.
+          Open the address Addam gave you and sign in with your approved email. On Windows, use
+          Chrome or Edge. On iPhone, use Safari. Keep using the same browser or installed
+          Ghostwriter icon to find your books.
         </p>
       </div>
-
+      <section className="start-steps">
+        <h2>From a memory to a page</h2>
+        <ol>
+          <li>
+            <span>1</span>
+            <div>
+              Choose <strong>Start my book</strong> and add your name and title. Returning? Your
+              last book opens for you.
+            </div>
+          </li>
+          <li>
+            <span>2</span>
+            <div>
+              Choose <strong>Talk</strong>, then <strong>Start private dictation</strong>. Allow the
+              microphone. Or choose <strong>Type instead</strong>.
+            </div>
+          </li>
+          <li>
+            <span>3</span>
+            <div>
+              Keep Ghostwriter open while recording. Choose <strong>I’m finished</strong>, then read
+              and correct the words.
+            </div>
+          </li>
+          <li>
+            <span>4</span>
+            <div>
+              Choose <strong>Write this into the book</strong>. Wait for{" "}
+              <strong>Saved on this device</strong> before closing.
+            </div>
+          </li>
+          <li>
+            <span>5</span>
+            <div>
+              Choose <strong>Keep draft for later</strong> if you are not finished. Next time,
+              choose <strong>Continue my draft</strong>.
+            </div>
+          </li>
+          <li>
+            <span>6</span>
+            <div>
+              Use <strong>Read</strong>, <strong>Listen to the page</strong>, or{" "}
+              <strong>Print</strong>. Listening needs an English voice installed on your device.
+            </div>
+          </li>
+        </ol>
+      </section>
       <div className="start-split">
         <section>
-          <h2>The laptop is home</h2>
+          <h2>Install it. Take it offline.</h2>
           <p>
-            Sit at the Windows computer. That is where the book lives, where you
-            write, and where you print. Click the star at the top of the window
-            so you never have to type the address again.
+            Open <strong>Install Ghostwriter</strong> in the writing room. On Windows, use your
+            browser’s install option. On iPhone, choose <strong>Share → Add to Home Screen</strong>.
           </p>
           <p>
-            When Windows asks “Use your microphone?”, click <strong>Allow</strong>.
-            You only have to do that once.
+            Open the new icon while online. Wait for offline readiness. Choose{" "}
+            <strong>Prepare offline dictation</strong>, then try a short recording. The first speech
+            download needs internet; your audio stays here.
           </p>
         </section>
         <section>
-          <h2>The iPhone is a pocket notebook</h2>
+          <h2>Keep a separate copy.</h2>
           <p>
-            Do not write the book on the phone. If a story arrives away from the
-            desk, open <strong>Voice Memos</strong> (the red waveform). Press the
-            red circle, talk, press it again.
+            After writing, open <strong>Backups</strong> (or <strong>Keep safe</strong> on a phone).
+            Download a backup or save it to Files. Check that the file is there.
           </p>
           <p>
-            Later, at the laptop: press Talk, then <strong>I have a recording</strong>,
-            and choose that memo. Or just sit down and tell it again. Stories keep.
+            To restore, choose that backup and <strong>Restore these books</strong>. It adds copies
+            without replacing your current books. Use this to move between devices; books do not
+            automatically sync.
           </p>
         </section>
       </div>
-
-      <section className="start-steps">
-        <h2>How to write</h2>
-        <ol>
-          <li>
-            <span>1</span><div>
-            Open your bookmark.
-          </div></li>
-          <li>
-            <span>2</span><div>
-            The first time, press <strong>Start my book</strong>. Put your name on
-            the title page.
-          </div></li>
-          <li>
-            <span>3</span><div>
-            Press <strong>Talk → Start private dictation</strong>. Tell the story the
-            way you would tell family.
-          </div></li>
-          <li>
-            <span>4</span><div>
-            Press <strong>I’m finished</strong>. Read what it heard. Fix any word
-            that looks wrong — that is normal.
-          </div></li>
-          <li>
-            <span>5</span><div>
-            Press <strong>Write this into the book</strong>. Earlier pages
-            stay unchanged.
-          </div></li>
-          <li>
-            <span>6</span><div>
-            Whenever you like: <strong>Read</strong> (quiet page),{" "}
-            <strong>Listen to the page</strong>, or <strong>Print</strong>. Use <strong>Backups</strong> to save a copy.
-          </div></li>
-        </ol>
-      </section>
-
       <footer className="start-foot">
         <div>
-          <h2>If something looks wrong</h2>
+          <h2>If something interrupts you</h2>
           <ul>
             <li>
-              <strong>Wrong words</strong> — fix them before you press Write this
-              into the book.
+              <strong>Not saved?</strong> Keep the page open. Download a backup of your latest
+              words, then follow the save message.
             </li>
             <li>
-              <strong>No microphone</strong> — press Type instead, or use a Voice
-              Memo from the phone.
+              <strong>Recording interrupted?</strong> Reopen your draft. Save the recording and
+              retry turning it into words. Only audio already saved can be recovered.
             </li>
             <li>
-              <strong>Can’t find the book</strong> — same bookmark, same program
-              (Edge or Chrome). Don’t use a private or “InPrivate” window.
+              <strong>Book missing?</strong> Check the same device, address, browser, and Books
+              list. Avoid private browsing. Do not clear website data or delete the app.
             </li>
           </ul>
         </div>
         <p className="start-call">
-          Anything else — call Addam at <strong>(502) 427-9894</strong>.
+          Need a hand? Digital Dropkick · <strong>(502) 427-9894</strong>
         </p>
       </footer>
     </article>

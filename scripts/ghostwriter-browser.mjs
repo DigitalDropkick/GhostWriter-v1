@@ -11,7 +11,7 @@ const output = resolve("screenshots/qa-review");
 await mkdir(output, { recursive: true });
 const executablePath =
   process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
-  (existsSync(chromium.executablePath()) ? undefined : "/usr/bin/google-chrome");
+  (existsSync(chromium.executablePath()) ? undefined : (process.platform === "win32" ? "C:/Program Files/Google/Chrome/Application/chrome.exe" : "/usr/bin/google-chrome"));
 const browser = await chromium.launch({
   executablePath,
   args: [
@@ -52,7 +52,7 @@ try {
   await page.getByRole("button", { name: "Next", exact: true }).click();
   await page.getByRole("button", { name: "Something else", exact: true }).click();
   await page.getByRole("button", { name: "Next", exact: true }).click();
-  await page.getByRole("button", { name: /^Keep my words/ }).click();
+
   await page.getByRole("button", { name: "Open the writing room", exact: true }).click();
   await page.getByText("Saved on this device", { exact: true }).waitFor();
   const bookId = await page.getByLabel("Your books", { exact: true }).inputValue();
@@ -123,15 +123,14 @@ try {
   await page
     .getByLabel("Words to add to your book", { exact: true })
     .fill("Another classroom memory.");
-  await page.getByText("Optional writing help & draft tools", { exact: true }).click();
+  await page.getByText("Draft tools", { exact: true }).click();
   const beforeConsent = mutations.length;
-  await page.getByRole("button", { name: "Review online writing help", exact: true }).click();
-  await page.getByRole("button", { name: "Keep it private", exact: true }).click();
+  assert.equal(await page.getByRole("button", { name: "Review online writing help", exact: true }).count(), 0);
   assert.equal(mutations.length, beforeConsent);
   await page.getByLabel("Start a new chapter", { exact: true }).check();
   await page.getByRole("button", { name: "Write this into the book", exact: true }).click();
   assert.equal(await page.locator("article h1").innerText(), "Chapter 2");
-  note("online help requires a separate explicit send; new chapter destination works");
+  note("disabled online help is hidden; new chapter destination works");
 
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByRole("button", { name: "Extra large", exact: true }).click();
@@ -144,6 +143,7 @@ try {
   assert.equal(await page.getByRole("dialog").count(), 0);
   note("settings trap keyboard focus, close with Escape, and offer larger text");
 
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: `${output}/desk-desktop.png`, fullPage: true });
   for (const width of [390, 320]) {
     await page.setViewportSize({ width, height: 844 });
@@ -242,7 +242,7 @@ try {
   await quota
     .getByLabel("Chapter text", { exact: true })
     .fill("Keep these words even when storage is full.");
-  await quota.getByText(/could not save your latest changes/).waitFor();
+  await quota.getByText(/latest changes are not saved on this device/).waitFor();
   assert.equal(
     await quota.getByLabel("Chapter text", { exact: true }).inputValue(),
     "Keep these words even when storage is full.",
@@ -284,6 +284,15 @@ try {
     assert.match(transcript, /country can do for you/i);
     await voicePage.screenshot({ path: `${output}/private-transcription.png`, fullPage: true });
     note("real local Whisper worker transcribes public speech audio");
+    await voicePage.getByRole("button", { name: "Keep draft for later", exact: true }).click();
+    await voicePage.getByRole("button", { name: "Settings", exact: true }).click();
+    await voicePage.getByRole("button", { name: "Install Ghostwriter", exact: true }).click();
+    await voicePage.getByRole("button", { name: "Prepare offline dictation", exact: true }).click();
+    await voicePage.getByText(/Speech files are saved for offline dictation/).waitFor();
+    await voicePage.screenshot({ path: `${output}/offline-dictation-ready.png` });
+    await voicePage.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
+    await voicePage.getByRole("button", { name: "Continue my draft", exact: true }).click();
+    note("install flow verifies the real speech files and inference assets are saved");
     // Inference must still work with every network connection disabled after loading.
     await context.setOffline(true);
     voicePage.once("dialog", (dialog) => dialog.accept());
